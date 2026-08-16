@@ -1,0 +1,44 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "solved-registry1",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-16",
+  "workers_dev": true,
+  "preview_urls": true,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "routes": [
+    {
+      "pattern": "registry1.solved.gg",
+      "custom_domain": true
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "META_LIMIT",
+      "namespace_id": "7101",
+      "simple": {
+        "limit": 8,
+        "period": 60
+      }
+    },
+    {
+      "name": "TARBALL_LIMIT",
+      "namespace_id": "7102",
+      "simple": {
+        "limit": 2,
+        "period": 60
+      }
+    },
+    {
+      "name": "GLOBAL_LIMIT",
+      "namespace_id": "7103",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    }
+  ]
+}

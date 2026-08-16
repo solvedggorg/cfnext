@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [[ -x "$ROOT/dist/bin/cfnext" ]]; then
+  exec "$ROOT/dist/bin/cfnext" "$@"
+fi
+exec bun "$ROOT/src/cli/index.ts" "$@"

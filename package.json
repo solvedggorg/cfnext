@@ -1,0 +1,18 @@
+{
+  "name": "cfnext-repo",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.3.14",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "cfnext": "bun packages/cfnext/src/cli/index.ts",
+    "build": "bun packages/cfnext/src/build/emit-declarations.ts",
+    "compile": "bun packages/cfnext/src/build/compile-cli.ts",
+    "test": "bun test packages/cfnext packages/registry",
+    "typecheck": "bun --bun tsc --noEmit -p packages/cfnext && bun --bun tsc --noEmit -p packages/registry"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@solved/cf",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Bun-only Next.js adapter and one-command Cloudflare Workers deploy. No OpenNext. No Node.js.",
+  "bin": {
+    "solved-cf": "./bin/solved-cf.ts"
+  },
+  "exports": {
+    ".": "./adapter.mjs",
+    "./adapter": "./adapter.mjs"
+  },
+  "engines": {
+    "bun": ">=1.2.0"
+  }
+}
