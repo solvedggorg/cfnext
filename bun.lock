@@ -21,7 +21,7 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@cloudflare/containers": "^0.0.28",
+        "@cloudflare/containers": "^0.0.28 || ^0.3.0",
         "next": ">=16.2.0",
         "react": ">=19.0.0",
         "react-dom": ">=19.0.0",
