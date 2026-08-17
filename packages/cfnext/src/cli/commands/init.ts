@@ -19,6 +19,9 @@ function parseBindings(raw: string | undefined): BindingKind[] {
   if (unknown.length > 0) {
     fail(`Unknown binding(s): ${unknown.join(", ")}. Use ${BINDING_KINDS.join(", ")}`)
   }
+  if (kinds.includes("hyperdrive")) {
+    fail("hyperdrive cannot be scaffolded with --bindings (id required). Run `cfnext add hyperdrive --id` or `--provision` after init.")
+  }
   return kinds as BindingKind[]
 }
 

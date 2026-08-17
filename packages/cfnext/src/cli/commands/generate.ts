@@ -1,6 +1,6 @@
-import { GenerateError, generate } from "../../generate"
+import { generate } from "../../generate"
 import { type Args, flagBool } from "../args"
-import { fail } from "../run"
+import { failIfGenerate } from "../fail-generate"
 import { findProjectRoot } from "../find-root"
 
 export async function generateCommand(args: Args): Promise<void> {
@@ -25,7 +25,6 @@ export async function generateCommand(args: Args): Promise<void> {
     }
     console.log("wrote wrangler.jsonc and cfnext.config.generated.ts")
   } catch (error) {
-    if (error instanceof GenerateError) fail(error.message)
-    throw error
+    failIfGenerate(error)
   }
 }

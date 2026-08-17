@@ -50,6 +50,36 @@ test("echo // hack makes wrangler dirty", async () => {
   expect(isDirtyGenerated(await readFile(path, "utf8"))).toBe(true)
   await expect(generate(dir)).rejects.toThrow(/edited/)
   await generate(dir, { force: true })
+  expect(isDirtyGenerated(await readFile(path, "utf8"))).toBe(false)
+})
+
+test("generate --check throws when wrangler is stale", async () => {
+  const dir = await tmpProject()
+  await writeFile(join(dir, "cfnext.json"), JSON.stringify(p0Fixture, null, 2))
+  await generate(dir)
+  await writeFile(join(dir, "cfnext.json"), JSON.stringify({ ...p0Fixture, name: "renamed" }, null, 2))
+  await expect(generate(dir, { check: true })).rejects.toThrow(/out of date/)
+})
+
+test("generate dryRun returns text without writing", async () => {
+  const dir = await tmpProject()
+  await writeFile(join(dir, "cfnext.json"), JSON.stringify({ name: "demo", target: "workers" }, null, 2))
+  const result = await generate(dir, { dryRun: true })
+  expect(result.wranglerText).toContain("@generated")
+  expect(await Bun.file(join(dir, "wrangler.jsonc")).exists()).toBe(false)
+})
+
+test("env overlay unimplemented fields are rejected", async () => {
+  const dir = await tmpProject()
+  await writeFile(
+    join(dir, "cfnext.json"),
+    JSON.stringify(
+      { name: "demo", target: "workers", env: { staging: { email: { sending: { binding: "EMAIL" } } } } },
+      null,
+      2,
+    ),
+  )
+  await expect(generate(dir)).rejects.toThrow(/env\.staging\.email/)
 })
 
 test("implicit generate skips when cfnext.json is missing", async () => {

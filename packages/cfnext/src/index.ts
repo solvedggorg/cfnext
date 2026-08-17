@@ -29,5 +29,12 @@ export { getCloudflareContext, runWithCloudflareContext } from "./ssr/context"
 export { matchRoute } from "./ssr/match"
 export { applyBinding, BINDING_KINDS, type BindingKind } from "./bindings"
 export { buildWrangler, type WranglerConfig } from "./wrangler"
-export type { CfnextJson } from "./schema"
+export type {
+  CfnextJson,
+  CfnextBindings,
+  D1Binding,
+  CfnextEnvOverlay,
+  CfnextLogpush,
+  CfnextAnalytics,
+} from "./schema"
 export { CATALOG, catalogKind, type CatalogKind } from "./catalog"

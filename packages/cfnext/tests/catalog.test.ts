@@ -1,15 +1,15 @@
 import { expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 
-import { CATALOG, presentUnimplementedPaths } from "../src/catalog"
+import { BINDING_KINDS } from "../src/bindings"
+import { CATALOG, P0_BINDING_KINDS, presentUnimplementedPaths } from "../src/catalog"
+import { CFNEXT_VERSION } from "../src/constants"
 import { exampleA } from "./fixtures/cfnext-json"
 
+const wranglerPkg = Bun.resolveSync("wrangler/package.json", import.meta.dir)
 const wranglerSchema = JSON.parse(
-  readFileSync(
-    join(import.meta.dir, "../node_modules/wrangler/config-schema.json"),
-    "utf8",
-  ),
+  readFileSync(join(dirname(wranglerPkg), "config-schema.json"), "utf8"),
 ) as {
   definitions: { RawConfig: { properties: Record<string, unknown> } }
 }
@@ -31,8 +31,27 @@ test("P0 emitImplemented is true only for the seven binding kinds", () => {
 })
 
 test("Example A present paths include unimplemented catalog kinds", () => {
-  const paths = presentUnimplementedPaths(exampleA)
-  expect(paths.some((p) => p.startsWith("email") || p.startsWith("access") || p.startsWith("media"))).toBe(
-    true,
-  )
+  expect(presentUnimplementedPaths(exampleA).sort()).toEqual([
+    "access",
+    "email.routing",
+    "email.sending",
+    "media.images.binding",
+    "media.images.loader",
+    "observability",
+    "secrets.required",
+    "vars",
+  ])
+})
+
+test("P0_BINDING_KINDS matches catalog emitImplemented kinds", () => {
+  const implemented = CATALOG.filter((kind) => kind.emitImplemented).map((kind) => kind.kind)
+  expect([...P0_BINDING_KINDS].sort() as string[]).toEqual(implemented.sort())
+  expect([...BINDING_KINDS].sort() as string[]).toEqual([...P0_BINDING_KINDS].sort())
+})
+
+test("CFNEXT_VERSION matches package.json", () => {
+  const pkg = JSON.parse(
+    readFileSync(join(import.meta.dir, "../package.json"), "utf8"),
+  ) as { version: string }
+  expect(CFNEXT_VERSION).toBe(pkg.version)
 })

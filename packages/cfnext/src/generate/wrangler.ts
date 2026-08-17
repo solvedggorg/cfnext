@@ -94,9 +94,9 @@ export function compileWrangler(config: CfnextConfig, json: CfnextJson): Wrangle
   }
 
   if (json.env) {
-    wrangler.env = {}
+    wrangler.env = { ...wrangler.env }
     for (const [name, overlay] of Object.entries(json.env)) {
-      wrangler.env[name] = compileEnvBlock(config.name, json, overlay)
+      wrangler.env[name] = compileEnvBlock(config.name, json, overlay, name)
     }
   }
 
@@ -107,13 +107,34 @@ export function compileWrangler(config: CfnextConfig, json: CfnextJson): Wrangle
   return wrangler
 }
 
+const UNIMPLEMENTED_OVERLAY = [
+  "durableObjects",
+  "workflows",
+  "agents",
+  "cron",
+  "secrets",
+  "access",
+  "observability",
+  "logpush",
+  "analytics",
+  "email",
+  "media",
+  "flagship",
+] as const
+
 function compileEnvBlock(
   app: string,
   base: CfnextJson,
   overlay: CfnextEnvOverlay,
+  envName: string,
 ): Partial<WranglerConfig> {
   if ("name" in overlay || "target" in overlay) {
     throw new GenerateError("env overlays must not set name or target")
+  }
+  for (const key of UNIMPLEMENTED_OVERLAY) {
+    if (overlay[key] !== undefined) {
+      throw new GenerateError(`env.${envName}.${key} is not implemented in this version`)
+    }
   }
   const merged: CfnextJson = {
     name: app,
@@ -130,6 +151,10 @@ function compileEnvBlock(
   }
   const block = pickNonInheritable(fragment)
   if (overlay.vars) block.vars = overlay.vars
+  if (overlay.compatibilityDate) block.compatibility_date = overlay.compatibilityDate
+  if (overlay.compatibilityFlags) block.compatibility_flags = overlay.compatibilityFlags
+  if (overlay.workersDev !== undefined) block.workers_dev = overlay.workersDev
+  if (overlay.previewUrls !== undefined) block.preview_urls = overlay.previewUrls
   if (overlay.passthrough) Object.assign(block, overlay.passthrough)
   return block
 }

@@ -86,3 +86,22 @@ test("init --skip-install writes a real directory", async () => {
   expect(existsSync(join(dest, "app/page.tsx"))).toBe(true)
   expect(existsSync(join(dest, "migrations/0001_init.sql"))).toBe(true)
 })
+
+test("init --bindings hyperdrive exits 1", async () => {
+  const dest = await mkdtemp(join(tmpdir(), "cfnext-init-hd-"))
+  const proc = Bun.spawn(
+    [
+      "bun",
+      join(import.meta.dir, "../src/cli/index.ts"),
+      "init",
+      dest,
+      "--yes",
+      "--skip-install",
+      "--bindings",
+      "hyperdrive",
+    ],
+    { stdout: "pipe", stderr: "pipe" },
+  )
+  expect(await proc.exited).toBe(1)
+  expect(await new Response(proc.stderr).text()).toMatch(/hyperdrive cannot be scaffolded/)
+})
