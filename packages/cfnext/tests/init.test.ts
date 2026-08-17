@@ -79,9 +79,29 @@ test("init --skip-install writes a real directory", async () => {
   )
   const code = await proc.exited
   expect(code).toBe(0)
-  expect(existsSync(join(dest, "cfnext.config.ts"))).toBe(true)
+  expect(existsSync(join(dest, "cfnext.json"))).toBe(true)
+  expect(existsSync(join(dest, "cfnext.config.generated.ts"))).toBe(true)
   expect(existsSync(join(dest, "wrangler.jsonc"))).toBe(true)
   expect(existsSync(join(dest, "worker.ts"))).toBe(true)
   expect(existsSync(join(dest, "app/page.tsx"))).toBe(true)
   expect(existsSync(join(dest, "migrations/0001_init.sql"))).toBe(true)
+})
+
+test("init --bindings hyperdrive exits 1", async () => {
+  const dest = await mkdtemp(join(tmpdir(), "cfnext-init-hd-"))
+  const proc = Bun.spawn(
+    [
+      "bun",
+      join(import.meta.dir, "../src/cli/index.ts"),
+      "init",
+      dest,
+      "--yes",
+      "--skip-install",
+      "--bindings",
+      "hyperdrive",
+    ],
+    { stdout: "pipe", stderr: "pipe" },
+  )
+  expect(await proc.exited).toBe(1)
+  expect(await new Response(proc.stderr).text()).toMatch(/hyperdrive cannot be scaffolded/)
 })

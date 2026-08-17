@@ -28,7 +28,10 @@ export type WranglerConfig = {
   r2_buckets?: Array<Record<string, unknown>>
   kv_namespaces?: Array<Record<string, unknown>>
   hyperdrive?: Array<Record<string, unknown>>
-  ai?: { binding: string }
+  ai?: { binding: string; remote?: boolean }
+  vars?: Record<string, string | number | boolean>
+  secrets?: { required?: string[] }
+  env?: Record<string, Partial<WranglerConfig>>
   vectorize?: Array<Record<string, unknown>>
   queues?: {
     producers?: Array<Record<string, unknown>>

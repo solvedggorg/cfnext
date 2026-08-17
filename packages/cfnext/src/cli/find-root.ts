@@ -5,6 +5,9 @@ export function findProjectRoot(start = process.cwd()): string {
   let dir = start
   while (true) {
     if (
+      existsSync(join(dir, "cfnext.json")) ||
+      existsSync(join(dir, "cfnext.jsonc")) ||
+      existsSync(join(dir, "cfnext.hooks.ts")) ||
       existsSync(join(dir, "cfnext.config.ts")) ||
       existsSync(join(dir, "wrangler.jsonc"))
     ) {

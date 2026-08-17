@@ -13,6 +13,10 @@ const BOOLEAN_FLAGS = new Set([
   "skip-install",
   "existing",
   "provision",
+  "force",
+  "check",
+  "dry-run",
+  "consume",
 ])
 
 export function parseArgs(argv: string[]): Args {

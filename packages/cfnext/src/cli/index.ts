@@ -7,6 +7,8 @@ import { deployCommand, devCommand } from "./commands/deploy"
 import { envCommand } from "./commands/env"
 import { HELP } from "./commands/help"
 import { initCommand } from "./commands/init"
+import { generateCommand } from "./commands/generate"
+import { migrateCommand } from "./commands/migrate"
 import { typesCommand } from "./commands/types"
 import { requireBun } from "./run"
 
@@ -24,6 +26,12 @@ switch (args.command) {
     break
   case "add":
     await addCommand(args)
+    break
+  case "generate":
+    await generateCommand(args)
+    break
+  case "migrate":
+    await migrateCommand(args)
     break
   case "build":
   case "pack":

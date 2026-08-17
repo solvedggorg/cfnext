@@ -1,10 +1,14 @@
 import type { BindingKind } from "../bindings"
-import { applyBinding, BINDING_DEFAULTS } from "../bindings"
+import { BINDING_DEFAULTS } from "../bindings"
+import { CFNEXT_VERSION } from "../constants"
+import { compileWrangler } from "../generate/wrangler"
+import { stampGenerated } from "../generate/hash"
+import { renderRuntimeConfig } from "../generate/runtime-config"
+import { stringifyJsonc } from "../jsonc"
 import { PROTECTED_PREFIXES, clerkShells } from "../protect-clerk"
 import type { CfnextConfig, DeployTarget } from "../config"
 import { normalizeConfig } from "../config"
-import { buildWrangler } from "../wrangler"
-import { stringifyJsonc } from "../jsonc"
+import type { CfnextJson } from "../schema"
 
 export type InitOptions = {
   dirName: string
@@ -31,22 +35,69 @@ export function scaffoldConfig(opts: InitOptions): CfnextConfig {
   })
 }
 
+export function scaffoldJson(opts: InitOptions): CfnextJson {
+  const json: CfnextJson = {
+    $schema: "./node_modules/cfnext/schema/cfnext.schema.json",
+    name: opts.name,
+    target: opts.target,
+    images: { unoptimized: opts.target !== "container" },
+    securityHeaders: true,
+    bindings: {},
+  }
+  if (opts.auth === "clerk") {
+    json.protect = {
+      prefixes: [...PROTECTED_PREFIXES],
+      signInPath: "/sign-in",
+    }
+  }
+  for (const kind of opts.bindings) {
+    const resource = BINDING_DEFAULTS[kind].resource(opts.name)
+    const binding = BINDING_DEFAULTS[kind].binding
+    switch (kind) {
+      case "d1":
+        json.bindings!.d1 = [{ binding, databaseName: resource, migrationsDir: "migrations" }]
+        break
+      case "r2":
+        json.bindings!.r2 = [{ binding, bucketName: resource }]
+        break
+      case "kv":
+        json.bindings!.kv = [{ binding }]
+        break
+      case "hyperdrive":
+        throw new Error(
+          "hyperdrive cannot be scaffolded without an id. Use `cfnext add hyperdrive --id` or `--provision`.",
+        )
+      case "ai":
+        json.ai = { binding }
+        break
+      case "vectorize":
+        json.bindings!.vectorize = [{ binding, indexName: resource }]
+        break
+      case "queue":
+        json.bindings!.queues = [{ binding, queue: resource }]
+        break
+    }
+  }
+  if (json.bindings && Object.keys(json.bindings).length === 0) delete json.bindings
+  return json
+}
+
 export function renderFiles(opts: InitOptions): Record<string, string> {
   const config = scaffoldConfig(opts)
-  let wrangler = buildWrangler(config)
-  for (const kind of opts.bindings) {
-    wrangler = applyBinding(wrangler, {
-      kind,
-      resourceName: BINDING_DEFAULTS[kind].resource(opts.name),
-    }).wrangler
-  }
+  const json = scaffoldJson(opts)
+  const wrangler = compileWrangler(config, json)
+  const wranglerText = stampGenerated(stringifyJsonc(wrangler), CFNEXT_VERSION)
 
   const files: Record<string, string> = {
     "package.json": packageJson(opts),
     "tsconfig.json": tsconfig(),
     "next.config.ts": nextConfig(),
-    "cfnext.config.ts": cfnextConfig(opts, config),
-    "wrangler.jsonc": stringifyJsonc(wrangler),
+    "cfnext.json": stringifyJsonc(json),
+    "cfnext.config.generated.ts": renderRuntimeConfig(
+      config,
+      opts.auth === "clerk" ? { shells: "clerkShells" } : null,
+    ),
+    "wrangler.jsonc": wranglerText,
     "worker.ts": workerFile(opts.target),
     "bunfig.toml": "[run]\nbun = true\n",
     ".gitignore": gitignore(),
@@ -57,6 +108,10 @@ export function renderFiles(opts: InitOptions): Record<string, string> {
     "app/globals.css": css(),
     "app/api/health/route.ts": health(opts.target),
     "public/.gitkeep": "",
+  }
+
+  if (opts.auth === "clerk") {
+    files["cfnext.hooks.ts"] = hooksFile()
   }
 
   if (opts.target === "ssr") {
@@ -112,6 +167,7 @@ function packageJson(opts: InitOptions): string {
         "cf:env": "cfnext env",
         "cf:types": "cfnext types",
         "cf:add": "cfnext add",
+        "cf:generate": "cfnext generate",
       },
       dependencies: deps,
       devDependencies: devDeps,
@@ -144,7 +200,8 @@ function tsconfig(): string {
       include: [
         "next-env.d.ts",
         "next.config.ts",
-        "cfnext.config.ts",
+        "cfnext.config.generated.ts",
+        "cfnext.hooks.ts",
         "ssr-runtime.ts",
         "worker.ts",
         "cloudflare-env.d.ts",
@@ -171,35 +228,15 @@ export default withCfnext(nextConfig)
 `
 }
 
-function cfnextConfig(opts: InitOptions, config: CfnextConfig): string {
-  const clerkImport =
-    opts.auth === "clerk"
-      ? `import { PROTECTED_PREFIXES, clerkShells } from "cfnext/protect/clerk"\n`
-      : ""
-  const protect =
-    opts.auth === "clerk"
-      ? `  protect: {
-    prefixes: [...PROTECTED_PREFIXES],
-    signInPath: "/sign-in",
-    shells: clerkShells(),
-  },
-`
-      : ""
-  return `import type { CfnextUserConfig } from "cfnext"
-${clerkImport}
-const config = {
-  name: ${JSON.stringify(config.name)},
-  target: ${JSON.stringify(config.target)},
-${protect}} satisfies CfnextUserConfig
-
-export default config
+function hooksFile(): string {
+  return `export { clerkShells } from "cfnext/protect/clerk"
 `
 }
 
 function workerFile(target: DeployTarget): string {
   if (target === "ssr") {
     return `import { createSsrWorker } from "cfnext/worker/ssr"
-import config from "./cfnext.config"
+import config from "./cfnext.config.generated"
 import { handlers, loaders, prerenders } from "./ssr-runtime"
 
 export default createSsrWorker({ config, handlers, loaders, prerenders })
@@ -208,7 +245,7 @@ export default createSsrWorker({ config, handlers, loaders, prerenders })
   if (target === "container") {
     return `import { Container } from "@cloudflare/containers"
 import { createContainerWorker } from "cfnext/worker/container"
-import config from "./cfnext.config"
+import config from "./cfnext.config.generated"
 
 export class NextApp extends Container {
   defaultPort = 8080
@@ -221,7 +258,7 @@ export default createContainerWorker(config)
 `
   }
   return `import { createAssetsWorker } from "cfnext/worker"
-import config from "./cfnext.config"
+import config from "./cfnext.config.generated"
 
 export default createAssetsWorker(config)
 `
@@ -454,6 +491,6 @@ bunx cfnext add d1   # scaffold D1 (or r2, kv, hyperdrive, ai, vectorize, queue)
 - **ssr** — Worker-side SSR via the Next.js 16.2 Adapter API. Static assets stay on Workers Assets. Node handlers run in the Worker with \`nodejs_compat\`. Use \`getCloudflareContext()\` from \`cfnext/server\` to read bindings.
 - **container** — Worker serves hashed assets and proxies everything else to a Cloudflare Container running \`next start\` (full Node fidelity).
 
-This is not OpenNext. Bindings (D1, R2, KV, …) are declared in \`wrangler.jsonc\` and typed with \`bun run cf:types\`.
+This is not OpenNext. Bindings (D1, R2, KV, …) are declared in \`cfnext.json\` and compiled with \`cfnext generate\`. Type with \`bun run cf:types\`.
 `
 }

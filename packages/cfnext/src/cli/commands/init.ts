@@ -19,6 +19,9 @@ function parseBindings(raw: string | undefined): BindingKind[] {
   if (unknown.length > 0) {
     fail(`Unknown binding(s): ${unknown.join(", ")}. Use ${BINDING_KINDS.join(", ")}`)
   }
+  if (kinds.includes("hyperdrive")) {
+    fail("hyperdrive cannot be scaffolded with --bindings (id required). Run `cfnext add hyperdrive --id` or `--provision` after init.")
+  }
   return kinds as BindingKind[]
 }
 
@@ -120,6 +123,7 @@ async function patchPackageJson(dest: string): Promise<void> {
     "cf:dev": "cfnext dev",
     "cf:env": "cfnext env",
     "cf:types": "cfnext types",
+    "cf:generate": "cfnext generate",
   }
   pkg.devDependencies = {
     ...pkg.devDependencies,

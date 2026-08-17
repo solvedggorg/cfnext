@@ -1,7 +1,9 @@
 export const HELP = `cfnext — Next.js adapter + CLI for Cloudflare Workers and Containers
 
   cfnext init [dir]       scaffold a Next.js app preconfigured for Cloudflare
-  cfnext add <binding>    add D1, R2, KV, Hyperdrive, AI, Vectorize, or a Queue
+  cfnext add <binding>    add a catalog binding to cfnext.json
+  cfnext generate         compile cfnext.json → wrangler.jsonc + types module
+  cfnext migrate wrangler import wrangler.jsonc into cfnext.json ( --force overwrites )
   cfnext build            next build (adapter packs .cloudflare/assets)
   cfnext deploy           build + wrangler deploy
   cfnext preview          build + wrangler versions upload
@@ -12,7 +14,7 @@ export const HELP = `cfnext — Next.js adapter + CLI for Cloudflare Workers and
 init
   --target workers|ssr|container   deploy target (default: workers)
   --name <name>                Worker name (default: directory)
-  --bindings d1,r2,kv          scaffold wrangler bindings
+  --bindings d1,r2,kv          scaffold cfnext.json bindings
   --auth clerk                 Clerk-style protected prefixes + shells
   --existing                   attach cfnext to an existing Next.js app
   --skip-install               do not run bun install
@@ -23,6 +25,13 @@ add
   --binding DB                 binding name
   --name my-db                 resource name
   --provision                  run the matching wrangler create command
+  --environment staging        write into env.staging (not preview/production)
+  --preview-id <id>            local/miniflare preview resource id
+
+generate
+  --check                      exit 1 if wrangler.jsonc is stale
+  --force                      overwrite a dirty @generated wrangler.jsonc
+  --dry-run                    print wrangler.jsonc without writing
 
 targets
   workers    Next Adapter packs static/prerender assets onto Workers
