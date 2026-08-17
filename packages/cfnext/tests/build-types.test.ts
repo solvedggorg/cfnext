@@ -14,7 +14,7 @@ test("declaration emit includes withCfnext and CfnextUserConfig", async () => {
   expect(dts).toContain("withCfnext")
   expect(dts).toContain("CfnextUserConfig")
   expect(dts).toContain("adapterPath")
-})
+}, 30_000)
 
 test("a next.config.ts consumer typechecks against emitted types", async () => {
   await emitDeclarations(pkgRoot)

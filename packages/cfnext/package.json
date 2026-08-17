@@ -56,12 +56,16 @@
       "bun": "./src/protect-clerk.ts",
       "import": "./dist/protect-clerk.js",
       "default": "./dist/protect-clerk.js"
+    },
+    "./schema": {
+      "default": "./schema/cfnext.schema.json"
     }
   },
   "files": [
     "bin",
     "dist",
     "src",
+    "schema",
     "README.md"
   ],
   "engines": {
@@ -97,6 +101,8 @@
   "devDependencies": {
     "@types/bun": "^1.3.14",
     "@types/node": "^26.0.0",
+    "ajv": "8",
+    "ajv-formats": "3",
     "typescript": "^5.9.3"
   }
 }

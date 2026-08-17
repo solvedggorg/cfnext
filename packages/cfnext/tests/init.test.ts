@@ -79,7 +79,8 @@ test("init --skip-install writes a real directory", async () => {
   )
   const code = await proc.exited
   expect(code).toBe(0)
-  expect(existsSync(join(dest, "cfnext.config.ts"))).toBe(true)
+  expect(existsSync(join(dest, "cfnext.json"))).toBe(true)
+  expect(existsSync(join(dest, "cfnext.config.generated.ts"))).toBe(true)
   expect(existsSync(join(dest, "wrangler.jsonc"))).toBe(true)
   expect(existsSync(join(dest, "worker.ts"))).toBe(true)
   expect(existsSync(join(dest, "app/page.tsx"))).toBe(true)

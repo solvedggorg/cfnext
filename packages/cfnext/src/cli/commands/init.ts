@@ -120,6 +120,7 @@ async function patchPackageJson(dest: string): Promise<void> {
     "cf:dev": "cfnext dev",
     "cf:env": "cfnext env",
     "cf:types": "cfnext types",
+    "cf:generate": "cfnext generate",
   }
   pkg.devDependencies = {
     ...pkg.devDependencies,

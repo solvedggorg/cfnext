@@ -61,7 +61,9 @@ export default withCfnext({
 | Command | What you get |
 | --- | --- |
 | `cfnext init [dir]` | Scaffold, or `--existing` to attach |
-| `cfnext add d1\|r2\|kv\|hyperdrive\|ai\|vectorize\|queue` | Write a wrangler binding (`--provision` creates it) |
+| `cfnext add d1\|r2\|kv\|hyperdrive\|ai\|vectorize\|queue` | Write a `cfnext.json` binding (`--provision` creates it) |
+| `cfnext generate` | Compile `cfnext.json` → hashed `wrangler.jsonc` + `cfnext.config.generated.ts` |
+| `cfnext migrate wrangler` | Import a hand-written `wrangler.jsonc` into `cfnext.json` |
 | `cfnext build` | `next build` — adapter packs `.cloudflare/assets` |
 | `cfnext deploy` | Build + `wrangler deploy` |
 | `cfnext preview` | Version upload / preview URL |

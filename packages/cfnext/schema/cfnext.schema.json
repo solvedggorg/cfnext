@@ -1,0 +1,588 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cfnext.dev/schema/cfnext.schema.json",
+  "title": "CfnextJson",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "target": { "enum": ["workers", "ssr", "container"] },
+    "compatibilityDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "compatibilityFlags": { "type": "array", "items": { "type": "string" } },
+    "workersDev": { "type": "boolean", "default": true },
+    "previewUrls": { "type": "boolean", "default": true },
+    "protect": { "$ref": "#/$defs/protect" },
+    "securityHeaders": { "type": "boolean", "default": true },
+    "images": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "unoptimized": { "type": "boolean" }
+      }
+    },
+    "bindings": { "$ref": "#/$defs/bindings" },
+    "migrations": {
+      "type": "array",
+      "description": "Append-only Durable Object migration log. Copied to wrangler. Never synthesized from durableObjects[].",
+      "items": { "$ref": "#/$defs/migration" }
+    },
+    "durableObjects": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/durableObject" }
+    },
+    "workflows": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/workflow" }
+    },
+    "agents": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/agent" }
+    },
+    "cron": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "vars": {
+      "type": "object",
+      "additionalProperties": { "type": ["string", "number", "boolean"] }
+    },
+    "secrets": { "$ref": "#/$defs/secrets" },
+    "access": { "$ref": "#/$defs/access" },
+    "observability": { "$ref": "#/$defs/observability" },
+    "logpush": { "$ref": "#/$defs/logpush" },
+    "analytics": { "$ref": "#/$defs/analytics" },
+    "email": { "$ref": "#/$defs/email" },
+    "ai": { "$ref": "#/$defs/ai" },
+    "media": { "$ref": "#/$defs/media" },
+    "flagship": { "$ref": "#/$defs/flagship" },
+    "env": {
+      "type": "object",
+      "description": "Named Workers (name-<key>). Keys preview and production are illegal.",
+      "additionalProperties": { "$ref": "#/$defs/envOverlay" },
+      "properties": {
+        "development": { "$ref": "#/$defs/envOverlay" },
+        "staging": { "$ref": "#/$defs/envOverlay" }
+      }
+    },
+    "passthrough": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "protect": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "prefixes": { "type": "array", "items": { "type": "string" } },
+        "signInPath": { "type": "string" },
+        "sessionCookiePattern": { "type": "string" },
+        "shells": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["prefix", "asset"],
+            "additionalProperties": false,
+            "properties": {
+              "prefix": { "type": "string" },
+              "asset": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "bindingName": {
+      "type": "object",
+      "required": ["binding"],
+      "properties": {
+        "binding": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "remote": { "type": "boolean" },
+        "omit": { "type": "boolean" }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "required": ["tag"],
+      "additionalProperties": false,
+      "properties": {
+        "tag": { "type": "string" },
+        "newSqliteClasses": { "type": "array", "items": { "type": "string" } },
+        "newClasses": { "type": "array", "items": { "type": "string" } },
+        "deletedClasses": { "type": "array", "items": { "type": "string" } },
+        "renamedClasses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["from", "to"],
+            "additionalProperties": false,
+            "properties": {
+              "from": { "type": "string" },
+              "to": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "d1": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/bindingName" },
+              {
+                "type": "object",
+                "properties": {
+                  "databaseName": { "type": "string" },
+                  "id": { "type": "string" },
+                  "previewId": { "type": "string" },
+                  "migrationsDir": { "type": "string", "default": "migrations" }
+                }
+              }
+            ]
+          }
+        },
+        "kv": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/bindingName" },
+              {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "previewId": { "type": "string" }
+                }
+              }
+            ]
+          }
+        },
+        "r2": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/bindingName" },
+              {
+                "type": "object",
+                "properties": {
+                  "bucketName": { "type": "string" },
+                  "previewBucketName": { "type": "string" },
+                  "jurisdiction": { "type": "string" }
+                }
+              }
+            ]
+          }
+        },
+        "hyperdrive": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/bindingName" },
+              {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "localConnectionString": { "type": "string" }
+                }
+              }
+            ]
+          }
+        },
+        "vectorize": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/bindingName" },
+              {
+                "type": "object",
+                "properties": {
+                  "indexName": { "type": "string" },
+                  "dimensions": { "type": "integer", "default": 768 },
+                  "metric": { "enum": ["cosine", "euclidean", "dot-product"], "default": "cosine" }
+                }
+              }
+            ]
+          }
+        },
+        "queues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["binding", "queue"],
+            "properties": {
+              "binding": { "type": "string" },
+              "queue": { "type": "string" },
+              "produce": { "type": "boolean", "default": true },
+              "consume": { "type": "boolean", "default": false },
+              "maxBatchSize": { "type": "number" },
+              "maxBatchTimeout": { "type": "number" },
+              "maxRetries": { "type": "number" },
+              "deadLetterQueue": { "type": "string" },
+              "deliveryDelay": { "type": "number" }
+            }
+          }
+        },
+        "pipelines": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/bindingName" },
+              { "type": "object", "properties": { "stream": { "type": "string" } } }
+            ]
+          }
+        },
+        "browser": { "$ref": "#/$defs/bindingName" },
+        "services": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["binding", "service"],
+            "properties": {
+              "binding": { "type": "string" },
+              "service": { "type": "string" },
+              "entrypoint": { "type": "string" }
+            }
+          }
+        },
+        "workerLoaders": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/bindingName" }
+        },
+        "versionMetadata": {
+          "oneOf": [{ "type": "boolean" }, { "$ref": "#/$defs/bindingName" }]
+        },
+        "unsafe": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type"],
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string" }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "durableObject": {
+      "type": "object",
+      "required": ["binding", "className"],
+      "additionalProperties": false,
+      "properties": {
+        "binding": { "type": "string" },
+        "className": { "type": "string" },
+        "scriptName": { "type": "string" },
+        "sqlite": { "type": "boolean", "default": true }
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "required": ["name", "binding", "className"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "binding": { "type": "string" },
+        "className": { "type": "string" },
+        "scriptName": { "type": "string" },
+        "schedules": {
+          "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }]
+        }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "required": ["className"],
+      "properties": {
+        "className": { "type": "string" },
+        "binding": { "type": "string" },
+        "memory": {
+          "type": "object",
+          "required": ["binding", "namespace"],
+          "properties": {
+            "binding": { "type": "string" },
+            "namespace": { "type": "string" }
+          }
+        },
+        "workflow": { "$ref": "#/$defs/workflow" }
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required": { "type": "array", "items": { "type": "string" } },
+        "store": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["binding", "storeId", "secretName"],
+            "properties": {
+              "binding": { "type": "string" },
+              "storeId": { "type": "string" },
+              "secretName": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "access": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protectPreview": { "type": "boolean", "default": false },
+        "protectProduction": { "type": "boolean", "default": false },
+        "allowedEmails": { "type": "array", "items": { "type": "string", "format": "email" } },
+        "allowedDomains": { "type": "array", "items": { "type": "string" } },
+        "aud": { "type": "string" },
+        "previewPolicyName": { "type": "string" },
+        "productionPolicyName": { "type": ["string", "null"] },
+        "dev": {
+          "type": "object",
+          "required": ["aud"],
+          "properties": {
+            "aud": { "type": "string" },
+            "identity": { "type": "object", "additionalProperties": true }
+          }
+        }
+      }
+    },
+    "observability": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "headSamplingRate": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 },
+        "logs": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "headSamplingRate": { "type": "number" },
+            "invocationLogs": { "type": "boolean" },
+            "persist": { "type": "boolean" },
+            "destinations": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "traces": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "headSamplingRate": { "type": "number" },
+            "persist": { "type": "boolean" },
+            "destinations": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "logpush": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "jobs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["dataset"],
+            "properties": {
+              "dataset": { "type": "string" },
+              "destination": { "type": "string" },
+              "name": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "analytics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "web": {
+          "type": "object",
+          "properties": {
+            "token": { "type": "string" },
+            "spa": { "type": "boolean", "default": true }
+          }
+        },
+        "engine": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/bindingName" },
+              { "type": "object", "properties": { "dataset": { "type": "string" } } }
+            ]
+          }
+        }
+      }
+    },
+    "email": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sending": {
+          "type": "object",
+          "properties": {
+            "binding": { "type": "string", "default": "EMAIL" },
+            "destinationAddress": { "type": "string" },
+            "allowedDestinations": { "type": "array", "items": { "type": "string" } },
+            "allowedSenders": { "type": "array", "items": { "type": "string" } },
+            "remote": { "type": "boolean" }
+          }
+        },
+        "routing": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "addresses": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "ai": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "binding": { "type": "string", "default": "AI" },
+        "remote": { "type": "boolean" },
+        "gateway": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string", "default": "default" },
+            "skip": { "type": "boolean" }
+          }
+        },
+        "models": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "search": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["binding"],
+            "properties": {
+              "binding": { "type": "string" },
+              "instanceName": { "type": "string" },
+              "namespace": { "type": "string" },
+              "remote": { "type": "boolean" }
+            }
+          }
+        },
+        "vectorize": { "$ref": "#/$defs/bindings/properties/vectorize" },
+        "websearch": { "$ref": "#/$defs/bindingName" },
+        "mcpPortals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "url": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "media": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "images": {
+          "type": "object",
+          "properties": {
+            "binding": { "type": "string", "default": "IMAGES" },
+            "remote": { "type": "boolean" },
+            "loader": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "kind": { "enum": ["cdn-cgi", "imagedelivery"] },
+                "zoneOrigin": { "type": "string" },
+                "accountHash": { "type": "string" },
+                "remotePatterns": { "type": "array" }
+              }
+            }
+          }
+        },
+        "stream": {
+          "type": "object",
+          "properties": {
+            "binding": { "type": "string", "default": "STREAM" },
+            "remote": { "type": "boolean" }
+          }
+        },
+        "transforms": {
+          "type": "object",
+          "properties": {
+            "binding": { "type": "string", "default": "MEDIA" },
+            "remote": { "type": "boolean", "default": true }
+          }
+        },
+        "realtime": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "appId": { "type": "string" }
+          }
+        }
+      }
+    },
+    "flagship": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["binding"],
+          "properties": {
+            "binding": { "type": "string", "default": "FLAGS" },
+            "appId": { "type": "string" },
+            "remote": { "type": "boolean" }
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["binding"],
+            "properties": {
+              "binding": { "type": "string" },
+              "appId": { "type": "string" },
+              "remote": { "type": "boolean" }
+            }
+          }
+        }
+      ]
+    },
+    "envOverlay": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "compatibilityDate": { "type": "string" },
+        "compatibilityFlags": { "type": "array", "items": { "type": "string" } },
+        "workersDev": { "type": "boolean" },
+        "previewUrls": { "type": "boolean" },
+        "bindings": { "$ref": "#/$defs/bindings" },
+        "durableObjects": { "type": "array", "items": { "$ref": "#/$defs/durableObject" } },
+        "workflows": { "type": "array", "items": { "$ref": "#/$defs/workflow" } },
+        "agents": { "type": "array", "items": { "$ref": "#/$defs/agent" } },
+        "cron": { "type": "array", "items": { "type": "string" } },
+        "vars": {
+          "type": "object",
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
+        },
+        "secrets": { "$ref": "#/$defs/secrets" },
+        "access": { "$ref": "#/$defs/access" },
+        "observability": { "$ref": "#/$defs/observability" },
+        "logpush": { "$ref": "#/$defs/logpush" },
+        "analytics": { "$ref": "#/$defs/analytics" },
+        "email": { "$ref": "#/$defs/email" },
+        "ai": { "$ref": "#/$defs/ai" },
+        "media": { "$ref": "#/$defs/media" },
+        "flagship": { "$ref": "#/$defs/flagship" },
+        "passthrough": { "type": "object", "additionalProperties": true }
+      }
+    }
+  }
+}
