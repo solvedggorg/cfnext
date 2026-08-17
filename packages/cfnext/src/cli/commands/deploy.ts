@@ -1,6 +1,7 @@
-import { GenerateError, generate } from "../../generate"
+import { generate } from "../../generate"
 import { type Args, flagBool } from "../args"
-import { fail, run } from "../run"
+import { failIfGenerate } from "../fail-generate"
+import { run } from "../run"
 import { findProjectRoot } from "../find-root"
 import { buildCommand } from "./build"
 
@@ -8,13 +9,13 @@ async function implicitGenerate(root: string): Promise<void> {
   try {
     await generate(root, { implicit: true })
   } catch (error) {
-    if (error instanceof GenerateError) fail(error.message)
-    throw error
+    failIfGenerate(error)
   }
 }
 
 export async function deployCommand(args: Args, preview: boolean): Promise<void> {
   const root = findProjectRoot()
+  // Production deploy does not call buildCommand(); wrangler runs build.command.
   await implicitGenerate(root)
   if (preview || flagBool(args.flags, "preview")) {
     await buildCommand()
@@ -25,8 +26,6 @@ export async function deployCommand(args: Args, preview: boolean): Promise<void>
 }
 
 export async function devCommand(): Promise<void> {
-  const root = findProjectRoot()
-  await implicitGenerate(root)
   await buildCommand()
-  await run(["bun", "x", "wrangler", "dev"], root)
+  await run(["bun", "x", "wrangler", "dev"], findProjectRoot())
 }

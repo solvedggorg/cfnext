@@ -64,7 +64,9 @@ export function scaffoldJson(opts: InitOptions): CfnextJson {
         json.bindings!.kv = [{ binding }]
         break
       case "hyperdrive":
-        break
+        throw new Error(
+          "hyperdrive cannot be scaffolded without an id. Use `cfnext add hyperdrive --id` or `--provision`.",
+        )
       case "ai":
         json.ai = { binding }
         break

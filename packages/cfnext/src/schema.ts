@@ -183,6 +183,16 @@ export type CfnextFlagship =
   | { binding: string; appId?: string; remote?: boolean }
   | Array<{ binding: string; appId?: string; remote?: boolean }>
 
+export type CfnextLogpush = {
+  enabled?: boolean
+  jobs?: Array<{ dataset: string; destination?: string; name?: string }>
+}
+
+export type CfnextAnalytics = {
+  web?: { token?: string; spa?: boolean }
+  engine?: Array<BindingName & { dataset?: string }>
+}
+
 export type CfnextEnvOverlay = {
   compatibilityDate?: string
   compatibilityFlags?: string[]
@@ -197,11 +207,8 @@ export type CfnextEnvOverlay = {
   secrets?: CfnextSecrets
   access?: CfnextAccess
   observability?: CfnextObservability
-  logpush?: { enabled?: boolean; jobs?: Array<{ dataset: string; destination?: string; name?: string }> }
-  analytics?: {
-    web?: { token?: string; spa?: boolean }
-    engine?: Array<BindingName & { dataset?: string }>
-  }
+  logpush?: CfnextLogpush
+  analytics?: CfnextAnalytics
   email?: CfnextEmail
   ai?: CfnextAi
   media?: CfnextMedia
@@ -230,11 +237,8 @@ export type CfnextJson = {
   secrets?: CfnextSecrets
   access?: CfnextAccess
   observability?: CfnextObservability
-  logpush?: { enabled?: boolean; jobs?: Array<{ dataset: string; destination?: string; name?: string }> }
-  analytics?: {
-    web?: { token?: string; spa?: boolean }
-    engine?: Array<BindingName & { dataset?: string }>
-  }
+  logpush?: CfnextLogpush
+  analytics?: CfnextAnalytics
   email?: CfnextEmail
   ai?: CfnextAi
   media?: CfnextMedia

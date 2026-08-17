@@ -3,7 +3,7 @@ export const HELP = `cfnext — Next.js adapter + CLI for Cloudflare Workers and
   cfnext init [dir]       scaffold a Next.js app preconfigured for Cloudflare
   cfnext add <binding>    add a catalog binding to cfnext.json
   cfnext generate         compile cfnext.json → wrangler.jsonc + types module
-  cfnext migrate wrangler import wrangler.jsonc into cfnext.json
+  cfnext migrate wrangler import wrangler.jsonc into cfnext.json ( --force overwrites )
   cfnext build            next build (adapter packs .cloudflare/assets)
   cfnext deploy           build + wrangler deploy
   cfnext preview          build + wrangler versions upload

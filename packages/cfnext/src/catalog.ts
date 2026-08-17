@@ -61,14 +61,50 @@ export function presentUnimplementedPaths(json: CfnextJson): string[] {
   return paths
 }
 
+function sameRecord(left: Record<string, unknown>, right: Record<string, unknown>): boolean {
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)])
+  for (const key of keys) {
+    if (left[key] !== right[key]) return false
+  }
+  return true
+}
+
 function pushUnique(
   list: Array<Record<string, unknown>> | undefined,
   item: Record<string, unknown>,
   key = "binding",
 ): Array<Record<string, unknown>> {
   const next = list ?? []
-  if (!next.some((entry) => entry[key] === item[key])) next.push(item)
+  const existing = next.find((entry) => entry[key] === item[key])
+  if (!existing) {
+    next.push(item)
+    return next
+  }
+  if (!sameRecord(existing, item)) {
+    throw new CatalogError(
+      `binding ${String(item[key])} is already defined with different values`,
+    )
+  }
   return next
+}
+
+function provisionResource(entry: unknown, keys: string[], fallback: string): string {
+  if (entry && typeof entry === "object") {
+    const rec = entry as Record<string, unknown>
+    for (const key of keys) {
+      const value = rec[key]
+      if (typeof value === "string" && value.length > 0) return value
+    }
+  }
+  return fallback
+}
+
+function hyperdriveConnectionString(): string {
+  const url = process.env.DATABASE_URL
+  if (!url) {
+    throw new CatalogError("hyperdrive --provision requires DATABASE_URL")
+  }
+  return url
 }
 
 function emitD1(entry: unknown, wrangler: WranglerConfig): void {
@@ -136,6 +172,7 @@ function emitQueue(entry: unknown, wrangler: WranglerConfig): void {
       "bindings.queues[].consume is not implemented in this version (P1). Omit consume or set consume: false.",
     )
   }
+  if (!item.queue) throw new CatalogError(`queue binding ${item.binding} requires queue`)
   const queues = wrangler.queues ?? {}
   const producers = queues.producers ?? []
   if (item.produce !== false && !producers.some((row) => row.binding === item.binding)) {
@@ -164,7 +201,14 @@ export const CATALOG: CatalogKind[] = [
     ],
     defaults: (app) => ({ binding: "DB", resource: `${app}-db` }),
     emit: emitD1,
-    provision: (_entry, app) => ["bun", "x", "wrangler", "d1", "create", `${app}-db`],
+    provision: (entry, app) => [
+      "bun",
+      "x",
+      "wrangler",
+      "d1",
+      "create",
+      provisionResource(entry, ["databaseName", "resource"], `${app}-db`),
+    ],
   },
   {
     kind: "r2",
@@ -177,7 +221,15 @@ export const CATALOG: CatalogKind[] = [
     wranglerAllowlist: ["binding", "bucket_name", "preview_bucket_name", "jurisdiction", "remote"],
     defaults: (app) => ({ binding: "BUCKET", resource: `${app}-bucket` }),
     emit: emitR2,
-    provision: (_entry, app) => ["bun", "x", "wrangler", "r2", "bucket", "create", `${app}-bucket`],
+    provision: (entry, app) => [
+      "bun",
+      "x",
+      "wrangler",
+      "r2",
+      "bucket",
+      "create",
+      provisionResource(entry, ["bucketName", "resource"], `${app}-bucket`),
+    ],
   },
   {
     kind: "kv",
@@ -190,7 +242,15 @@ export const CATALOG: CatalogKind[] = [
     wranglerAllowlist: ["binding", "id", "preview_id", "remote"],
     defaults: (app) => ({ binding: "KV", resource: `${app}-kv` }),
     emit: emitKv,
-    provision: (_entry, app) => ["bun", "x", "wrangler", "kv", "namespace", "create", `${app}-kv`],
+    provision: (entry, app) => [
+      "bun",
+      "x",
+      "wrangler",
+      "kv",
+      "namespace",
+      "create",
+      provisionResource(entry, ["resource"], `${app}-kv`),
+    ],
   },
   {
     kind: "hyperdrive",
@@ -203,15 +263,15 @@ export const CATALOG: CatalogKind[] = [
     wranglerAllowlist: ["binding", "id", "localConnectionString", "remote"],
     defaults: (app) => ({ binding: "HYPERDRIVE", resource: `${app}-hyperdrive` }),
     emit: emitHyperdrive,
-    provision: (_entry, app) => [
+    provision: (entry, app) => [
       "bun",
       "x",
       "wrangler",
       "hyperdrive",
       "create",
-      `${app}-hyperdrive`,
+      provisionResource(entry, ["resource"], `${app}-hyperdrive`),
       "--connection-string",
-      "$DATABASE_URL",
+      hyperdriveConnectionString(),
     ],
   },
   {
@@ -239,13 +299,13 @@ export const CATALOG: CatalogKind[] = [
     wranglerAllowlist: ["binding", "index_name", "remote"],
     defaults: (app) => ({ binding: "VECTORIZE", resource: `${app}-index` }),
     emit: emitVectorize,
-    provision: (_entry, app) => [
+    provision: (entry, app) => [
       "bun",
       "x",
       "wrangler",
       "vectorize",
       "create",
-      `${app}-index`,
+      provisionResource(entry, ["indexName", "resource"], `${app}-index`),
       "--dimensions",
       "768",
       "--metric",
@@ -264,7 +324,14 @@ export const CATALOG: CatalogKind[] = [
     wranglerAllowlist: ["binding", "queue"],
     defaults: (app) => ({ binding: "QUEUE", resource: `${app}-queue` }),
     emit: emitQueue,
-    provision: (_entry, app) => ["bun", "x", "wrangler", "queues", "create", `${app}-queue`],
+    provision: (entry, app) => [
+      "bun",
+      "x",
+      "wrangler",
+      "queues",
+      "create",
+      provisionResource(entry, ["queue", "resource"], `${app}-queue`),
+    ],
   },
   {
     kind: "do",

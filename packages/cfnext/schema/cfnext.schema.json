@@ -191,22 +191,7 @@
             ]
           }
         },
-        "vectorize": {
-          "type": "array",
-          "items": {
-            "allOf": [
-              { "$ref": "#/$defs/bindingName" },
-              {
-                "type": "object",
-                "properties": {
-                  "indexName": { "type": "string" },
-                  "dimensions": { "type": "integer", "default": 768 },
-                  "metric": { "enum": ["cosine", "euclidean", "dot-product"], "default": "cosine" }
-                }
-              }
-            ]
-          }
-        },
+        "vectorize": { "$ref": "#/$defs/vectorizeBindings" },
         "queues": {
           "type": "array",
           "items": {
@@ -266,6 +251,22 @@
             "additionalProperties": true
           }
         }
+      }
+    },
+    "vectorizeBindings": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          { "$ref": "#/$defs/bindingName" },
+          {
+            "type": "object",
+            "properties": {
+              "indexName": { "type": "string" },
+              "dimensions": { "type": "integer", "default": 768 },
+              "metric": { "enum": ["cosine", "euclidean", "dot-product"], "default": "cosine" }
+            }
+          }
+        ]
       }
     },
     "durableObject": {
@@ -471,7 +472,7 @@
             }
           }
         },
-        "vectorize": { "$ref": "#/$defs/bindings/properties/vectorize" },
+        "vectorize": { "$ref": "#/$defs/vectorizeBindings" },
         "websearch": { "$ref": "#/$defs/bindingName" },
         "mcpPortals": {
           "type": "array",
@@ -502,7 +503,10 @@
                 "kind": { "enum": ["cdn-cgi", "imagedelivery"] },
                 "zoneOrigin": { "type": "string" },
                 "accountHash": { "type": "string" },
-                "remotePatterns": { "type": "array" }
+                "remotePatterns": {
+                  "type": "array",
+                  "items": { "type": "object" }
+                }
               }
             }
           }
