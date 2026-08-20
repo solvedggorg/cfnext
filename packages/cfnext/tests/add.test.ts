@@ -42,12 +42,14 @@ test("cfnext add r2 writes cfnext.json and regenerates wrangler", async () => {
   expect(wrangler).toContain("demo-bucket")
 })
 
-test("cfnext add ai-search exits 1 until P4", async () => {
+test("cfnext add ai-search writes instance binding", async () => {
   const dir = await tmpDir()
   await writeFile(join(dir, "cfnext.json"), JSON.stringify(p0Fixture, null, 2))
-  const result = await runCli(dir, ["add", "ai-search"])
-  expect(result.code).toBe(1)
-  expect(result.stderr).toMatch(/not implemented/i)
+  await generate(dir)
+  const result = await runCli(dir, ["add", "ai-search", "--name", "docs"])
+  expect(result.code, `${result.stdout}\n${result.stderr}`).toBe(0)
+  const json = parseJsonc<CfnextJson>(await readFile(join(dir, "cfnext.json"), "utf8"))
+  expect(json.ai?.search?.[0]).toEqual({ binding: "AI_SEARCH", instanceName: "docs" })
 })
 
 test("cfnext add database alias writes d1", async () => {

@@ -12,6 +12,7 @@ import { isDirtyGenerated, splitGenerated, stampGenerated } from "./hash"
 import { writeRuntimeConfig } from "./runtime-config"
 import { writePlanFiles } from "./plans"
 import { writeImageLoader } from "./next"
+import { writeModels } from "./models"
 import { writeGeneratedWorker } from "./worker"
 import { compileWrangler } from "./wrangler"
 
@@ -82,18 +83,21 @@ export async function generate(projectDir: string, opts: GenerateOptions = {}): 
     }
     await writeGeneratedWorker(projectDir, json, { check: true })
     await writeImageLoader(projectDir, json, { check: true })
+    await writeModels(projectDir, json, { check: true })
     return { skipped: false, wranglerText: nextText }
   }
 
   if (opts.dryRun) {
     await writeGeneratedWorker(projectDir, json, { dryRun: true })
     await writeImageLoader(projectDir, json, { dryRun: true })
+    await writeModels(projectDir, json, { dryRun: true })
     return { skipped: false, wranglerText: nextText }
   }
 
   await mkdir(join(projectDir, ".cloudflare/assets"), { recursive: true })
   await writeGeneratedWorker(projectDir, json)
   await writeImageLoader(projectDir, json)
+  await writeModels(projectDir, json)
   await writeFile(wranglerFile, nextText)
   await writeRuntimeConfig(
     projectDir,

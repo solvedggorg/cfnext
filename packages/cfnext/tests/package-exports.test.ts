@@ -18,6 +18,7 @@ test("public exports declare types for next.config.ts-style imports", async () =
     "./flags",
     "./analytics",
     "./email",
+    "./ai",
     "./image-loader",
     "./stream",
   ]) {

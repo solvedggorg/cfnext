@@ -30,6 +30,10 @@ const NON_INHERITABLE = [
   "images",
   "stream",
   "media",
+  "ai_search",
+  "ai_search_namespaces",
+  "agent_memory",
+  "websearch",
 ] as const
 
 function mergeBindingArrays<T extends { binding: string; omit?: boolean }>(
@@ -182,7 +186,7 @@ function compileEnvBlock(
   const block = pickNonInheritable(fragment)
   if (overlay.observability) block.observability = fragment.observability
   if (overlay.logpush) block.logpush = fragment.logpush
-  if (overlay.vars) block.vars = overlay.vars
+  if (overlay.vars) block.vars = { ...fragment.vars, ...overlay.vars }
   if (overlay.compatibilityDate) block.compatibility_date = overlay.compatibilityDate
   if (overlay.compatibilityFlags) block.compatibility_flags = overlay.compatibilityFlags
   if (overlay.workersDev !== undefined) block.workers_dev = overlay.workersDev

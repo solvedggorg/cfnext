@@ -31,3 +31,30 @@ test("treats --inbound as a boolean", () => {
   expect(flagBool(args.flags, "inbound")).toBe(true)
   expect(flagString(args.flags, "addresses")).toBe("a@b.c")
 })
+
+test("treats --public and --no-memory as booleans", () => {
+  const model = parseArgs([
+    "bun",
+    "cfnext",
+    "add",
+    "model",
+    "--public",
+    "--alias",
+    "chat",
+    "--id",
+    "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+  ])
+  expect(flagBool(model.flags, "public")).toBe(true)
+  expect(flagString(model.flags, "alias")).toBe("chat")
+  const agent = parseArgs([
+    "bun",
+    "cfnext",
+    "add",
+    "agent",
+    "--no-memory",
+    "--class",
+    "ResearchAgent",
+  ])
+  expect(flagBool(agent.flags, "no-memory")).toBe(true)
+  expect(flagString(agent.flags, "class")).toBe("ResearchAgent")
+})

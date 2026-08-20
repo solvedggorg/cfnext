@@ -58,6 +58,10 @@ export type WranglerConfig = {
   kv_namespaces?: Array<Record<string, unknown>>
   hyperdrive?: Array<Record<string, unknown>>
   ai?: { binding: string; remote?: boolean }
+  ai_search?: Array<{ binding: string; instance_name: string; remote?: boolean }>
+  ai_search_namespaces?: Array<{ binding: string; namespace: string; remote?: boolean }>
+  agent_memory?: Array<{ binding: string; namespace: string; remote?: boolean }>
+  websearch?: { binding: string; remote?: boolean }
   vars?: Record<string, string | number | boolean>
   secrets?: { required?: string[] }
   secrets_store_secrets?: Array<Record<string, unknown>>

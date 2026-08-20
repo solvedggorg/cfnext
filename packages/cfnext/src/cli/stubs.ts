@@ -48,6 +48,17 @@ export async function email(
 `
 }
 
+export function agentStub(className: string): string {
+  return `import { Agent } from "agents"
+
+export class ${className} extends Agent<CloudflareEnv> {
+  async onRequest(request: Request): Promise<Response> {
+    return new Response("ok")
+  }
+}
+`
+}
+
 export function scheduledStub(): string {
   return `export async function scheduled(
   controller: ScheduledController,

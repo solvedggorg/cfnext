@@ -1,4 +1,5 @@
 import type {
+  AgentEntry,
   CfnextAccess,
   CfnextEmail,
   CfnextFlagship,
@@ -367,6 +368,84 @@ function emitMediaTransforms(json: CfnextJson, wrangler: WranglerConfig): void {
     binding: transforms.binding,
     ...(transforms.remote ? { remote: true } : {}),
   }
+}
+
+function emitAiSearch(json: CfnextJson, wrangler: WranglerConfig): void {
+  for (const item of json.ai?.search ?? []) {
+    const hasInstance = Boolean(item.instanceName)
+    const hasNamespace = Boolean(item.namespace)
+    if (hasInstance === hasNamespace) {
+      throw new CatalogError(
+        `ai.search binding ${item.binding} requires instanceName xor namespace`,
+      )
+    }
+    if (item.instanceName) {
+      wrangler.ai_search = pushUnique(wrangler.ai_search, {
+        binding: item.binding,
+        instance_name: item.instanceName,
+        ...(item.remote ? { remote: true } : {}),
+      }) as WranglerConfig["ai_search"]
+    } else if (item.namespace) {
+      wrangler.ai_search_namespaces = pushUnique(wrangler.ai_search_namespaces, {
+        binding: item.binding,
+        namespace: item.namespace,
+        ...(item.remote ? { remote: true } : {}),
+      }) as WranglerConfig["ai_search_namespaces"]
+    }
+  }
+}
+
+function emitWebsearch(json: CfnextJson, wrangler: WranglerConfig): void {
+  const websearch = json.ai?.websearch
+  if (!websearch?.binding) return
+  wrangler.websearch = {
+    binding: websearch.binding,
+    ...(websearch.remote ? { remote: true } : {}),
+  }
+}
+
+function emitAiGateway(json: CfnextJson, wrangler: WranglerConfig): void {
+  const gateway = json.ai?.gateway
+  if (!gateway || gateway.skip) return
+  const id = gateway.id ?? "default"
+  wrangler.vars = { ...wrangler.vars, AI_GATEWAY_ID: id }
+}
+
+function agentBindingName(className: string, binding?: string): string {
+  if (binding) return binding
+  return className
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
+    .replace(/[\s_]+/g, "-")
+    .toLowerCase()
+    .replace(/-/g, "_")
+    .toUpperCase()
+}
+
+function emitAgents(json: CfnextJson, wrangler: WranglerConfig): void {
+  const agents: AgentEntry[] = json.agents ?? []
+  if (agents.length === 0) return
+  const bindings = [...(wrangler.durable_objects?.bindings ?? [])]
+  for (const agent of agents) {
+    const binding = agentBindingName(agent.className, agent.binding)
+    assertReservedDo({ binding, className: agent.className })
+    if (bindings.some((row) => row.name === binding || row.class_name === agent.className)) {
+      throw new CatalogError(
+        `agent ${agent.className} is already defined as a Durable Object`,
+      )
+    }
+    bindings.push({ name: binding, class_name: agent.className })
+    if (agent.memory) {
+      wrangler.agent_memory = pushUnique(wrangler.agent_memory, {
+        binding: agent.memory.binding,
+        namespace: agent.memory.namespace,
+      }) as WranglerConfig["agent_memory"]
+    }
+    if (agent.workflow) {
+      emitWorkflows({ workflows: [agent.workflow] }, wrangler)
+    }
+  }
+  wrangler.durable_objects = { bindings }
 }
 
 function emitVersionMetadata(json: CfnextJson, wrangler: WranglerConfig): void {
@@ -754,7 +833,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "ai_search",
     jsonPath: "ai.search",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 3,
     phase: "P4",
     wranglerAllowlist: ["binding", "instance_name", "namespace", "remote"],
@@ -764,7 +843,7 @@ export const CATALOG: CatalogKind[] = [
     kind: "ai-gateway",
     jsonPath: "ai.gateway",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     virtual: true,
     level: 3,
     phase: "P4",
@@ -775,7 +854,7 @@ export const CATALOG: CatalogKind[] = [
     kind: "model",
     jsonPath: "ai.models",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     virtual: true,
     level: 3,
     phase: "P4",
@@ -787,7 +866,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "durable_objects",
     jsonPath: "agents",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 3,
     phase: "P4",
     wranglerAllowlist: ["name", "class_name"],
@@ -797,7 +876,7 @@ export const CATALOG: CatalogKind[] = [
     kind: "mcp-portal",
     jsonPath: "ai.mcpPortals",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     virtual: true,
     level: 4,
     phase: "P4",
@@ -809,7 +888,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "websearch",
     jsonPath: "ai.websearch",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 1,
     phase: "P4",
     wranglerAllowlist: ["binding"],
@@ -923,11 +1002,15 @@ export function emitImplementedBindings(json: CfnextJson, wrangler: WranglerConf
     if (!item.omit) emitQueue(item, wrangler)
   }
   if (json.ai?.binding) emitAi(json.ai, wrangler)
+  emitAiSearch(json, wrangler)
+  emitWebsearch(json, wrangler)
   emitDurableObjects(json, wrangler)
+  emitAgents(json, wrangler)
   emitWorkflows(json, wrangler)
   emitCron(json, wrangler)
   emitSecrets(json, wrangler)
   emitVars(json, wrangler)
+  emitAiGateway(json, wrangler)
   emitVersionMetadata(json, wrangler)
   emitMigrations(json, wrangler)
   emitAccess(json, wrangler)

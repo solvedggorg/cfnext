@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
-import { mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { tmpdir } from "node:os"
 
 import { parseJsonc } from "../src/jsonc"
 import { generate, GenerateError } from "../src/generate"
-import { p0Fixture, exampleA } from "./fixtures/cfnext-json"
+import { p0Fixture, exampleA, exampleB } from "./fixtures/cfnext-json"
 import { splitGenerated, isDirtyGenerated } from "../src/generate/hash"
 
 async function tmpProject(): Promise<string> {
@@ -52,6 +52,40 @@ test("generate Example A emits send_email and images", async () => {
     { name: "EMAIL", allowed_sender_addresses: ["noreply@acme.com"] },
   ])
   expect(wrangler.images).toEqual({ binding: "IMAGES" })
+
+  const wranglerPkg = Bun.resolveSync("wrangler/package.json", import.meta.dir)
+  const schema = JSON.parse(readFileSync(join(dirname(wranglerPkg), "config-schema.json"), "utf8")) as object
+  const Ajv = (await import("ajv")).default
+  const ajv = new Ajv({ strict: false, allErrors: true })
+  const validate = ajv.compile(schema)
+  expect(validate(wrangler), JSON.stringify(validate.errors, null, 2)).toBe(true)
+})
+
+test("generate Example B emits AI search, agent DO, and no model vars", async () => {
+  const dir = await tmpProject()
+  await writeFile(join(dir, "cfnext.json"), JSON.stringify(exampleB, null, 2))
+  await mkdir(join(dir, "agents"), { recursive: true })
+  await mkdir(join(dir, "workflows"), { recursive: true })
+  await writeFile(join(dir, "agents/ResearchAgent.ts"), "export class ResearchAgent {}\n")
+  await writeFile(join(dir, "workflows/IngestWorkflow.ts"), "export class IngestWorkflow {}\n")
+  await generate(dir)
+  const wrangler = parseJsonc<{
+    ai?: { binding: string }
+    ai_search?: Array<{ binding: string; instance_name: string }>
+    durable_objects?: { bindings?: Array<{ name: string; class_name: string }> }
+    vars?: Record<string, string>
+    workflows?: Array<{ class_name: string }>
+  }>(splitGenerated(await readFile(join(dir, "wrangler.jsonc"), "utf8")).body)
+  expect(wrangler.ai?.binding).toBe("AI")
+  expect(wrangler.ai_search).toEqual([{ binding: "AI_SEARCH", instance_name: "docs" }])
+  expect(wrangler.durable_objects?.bindings).toEqual([
+    { name: "RESEARCH_AGENT", class_name: "ResearchAgent" },
+  ])
+  expect(wrangler.workflows?.some((row) => row.class_name === "IngestWorkflow")).toBe(true)
+  expect(JSON.stringify(wrangler.vars ?? {})).not.toContain("@cf/")
+
+  const models = await readFile(join(dir, ".cloudflare/generated/models.ts"), "utf8")
+  expect(models).toContain("@cf/meta/llama-3.3-70b-instruct-fp8-fast")
 
   const wranglerPkg = Bun.resolveSync("wrangler/package.json", import.meta.dir)
   const schema = JSON.parse(readFileSync(join(dirname(wranglerPkg), "config-schema.json"), "utf8")) as object

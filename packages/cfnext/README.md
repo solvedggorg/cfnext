@@ -67,7 +67,7 @@ import { CfnextStream } from "cfnext/stream"
 | Command | What you get |
 | --- | --- |
 | `cfnext init [dir]` | Scaffold, or `--existing` to attach |
-| `cfnext add d1\|r2\|kv\|hyperdrive\|ai\|vectorize\|queue\|do\|workflow\|cron\|secret\|secret-store\|var\|access\|flagship\|logpush\|web-analytics\|email\|images\|image-loader\|stream\|media\|realtime` | Write a `cfnext.json` binding (`--provision` creates it) |
+| `cfnext add d1\|r2\|kv\|hyperdrive\|ai\|vectorize\|queue\|do\|workflow\|cron\|secret\|secret-store\|var\|access\|flagship\|logpush\|web-analytics\|email\|images\|image-loader\|stream\|media\|realtime\|model\|ai-search\|ai-gateway\|agent\|websearch\|mcp-portal` | Write a `cfnext.json` binding (`--provision` creates it) |
 | `cfnext rm do --class X` | Remove a Durable Object; keep the append-only migration log |
 | `cfnext generate` | Compile `cfnext.json` → hashed `wrangler.jsonc` + `cfnext.config.generated.ts` |
 | `cfnext migrate wrangler` | Import a hand-written `wrangler.jsonc` into `cfnext.json` |

@@ -5,7 +5,7 @@ import { dirname, join } from "node:path"
 import { BINDING_KINDS } from "../src/bindings"
 import { CATALOG, P0_BINDING_KINDS, presentUnimplementedPaths } from "../src/catalog"
 import { CFNEXT_VERSION } from "../src/constants"
-import { exampleA } from "./fixtures/cfnext-json"
+import { exampleA, exampleB } from "./fixtures/cfnext-json"
 
 const wranglerPkg = Bun.resolveSync("wrangler/package.json", import.meta.dir)
 const wranglerSchema = JSON.parse(
@@ -25,11 +25,14 @@ test("every non-virtual wranglerKey exists on vendored wrangler schema", () => {
   expect(missing).toEqual([])
 })
 
-test("P3 emitImplemented includes P2 plus email and media kinds", () => {
+test("P4 emitImplemented includes P3 plus AI, agents, and MCP kinds", () => {
   const implemented = CATALOG.filter((k) => k.emitImplemented).map((k) => k.kind).sort()
   expect(implemented).toEqual([
     "access",
+    "agent",
     "ai",
+    "ai-gateway",
+    "ai-search",
     "cron",
     "d1",
     "do",
@@ -41,7 +44,9 @@ test("P3 emitImplemented includes P2 plus email and media kinds", () => {
     "images",
     "kv",
     "logpush",
+    "mcp-portal",
     "media",
+    "model",
     "observability",
     "queue",
     "r2",
@@ -53,12 +58,17 @@ test("P3 emitImplemented includes P2 plus email and media kinds", () => {
     "vectorize",
     "version-metadata",
     "web-analytics",
+    "websearch",
     "workflow",
   ])
 })
 
 test("Example A present paths are implemented in P3", () => {
   expect(presentUnimplementedPaths(exampleA)).toEqual([])
+})
+
+test("Example B present paths are implemented in P4", () => {
+  expect(presentUnimplementedPaths(exampleB)).toEqual([])
 })
 
 test("P0_BINDING_KINDS matches legacy BINDING_KINDS", () => {

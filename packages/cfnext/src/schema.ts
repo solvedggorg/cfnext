@@ -146,11 +146,13 @@ export type CfnextEmail = {
   }
 }
 
+export type CfnextModelAlias = string | { id: string; public?: boolean }
+
 export type CfnextAi = {
   binding?: string
   remote?: boolean
   gateway?: { id?: string; skip?: boolean }
-  models?: Record<string, string>
+  models?: Record<string, CfnextModelAlias>
   search?: Array<{
     binding: string
     instanceName?: string

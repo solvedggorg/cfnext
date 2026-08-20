@@ -457,7 +457,20 @@
         },
         "models": {
           "type": "object",
-          "additionalProperties": { "type": "string" }
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "string" },
+              {
+                "type": "object",
+                "required": ["id"],
+                "additionalProperties": false,
+                "properties": {
+                  "id": { "type": "string" },
+                  "public": { "type": "boolean" }
+                }
+              }
+            ]
+          }
         },
         "search": {
           "type": "array",
@@ -469,7 +482,11 @@
               "instanceName": { "type": "string" },
               "namespace": { "type": "string" },
               "remote": { "type": "boolean" }
-            }
+            },
+            "oneOf": [
+              { "required": ["binding", "instanceName"], "not": { "required": ["namespace"] } },
+              { "required": ["binding", "namespace"], "not": { "required": ["instanceName"] } }
+            ]
           }
         },
         "vectorize": { "$ref": "#/$defs/vectorizeBindings" },

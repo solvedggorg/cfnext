@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 
 export const WORKERS_TYPES_SPEC = "^4.20250816.0"
+export const AGENTS_SPEC = "^0.3.0"
 
 export async function ensureDevDependency(root: string, name: string, spec: string): Promise<boolean> {
   const path = join(root, "package.json")

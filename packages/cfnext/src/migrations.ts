@@ -41,6 +41,7 @@ export function liveDoClasses(json: CfnextJson): Set<string> {
   const live = new Set<string>()
   if (json.target === "container") live.add("NextApp")
   for (const item of json.durableObjects ?? []) live.add(item.className)
+  for (const item of json.agents ?? []) live.add(item.className)
   return live
 }
 
@@ -50,14 +51,14 @@ export function assertMigrationsMatchLive(json: CfnextJson): void {
   for (const name of live) {
     if (!historical.has(name)) {
       throw new MigrationError(
-        `Durable Object class ${name} is live but missing from migrations[]. Run \`cfnext add do --class ${name}\`.`,
+        `Durable Object class ${name} is live but missing from migrations[]. Run \`cfnext add do --class ${name}\` or \`cfnext add agent --class ${name}\`.`,
       )
     }
   }
   for (const name of historical) {
     if (!live.has(name)) {
       throw new MigrationError(
-        `Durable Object class ${name} is in migrations[] but not durableObjects[]. Run \`cfnext rm do --class ${name}\`.`,
+        `Durable Object class ${name} is in migrations[] but not durableObjects[] or agents[]. Run \`cfnext rm do --class ${name}\`.`,
       )
     }
   }

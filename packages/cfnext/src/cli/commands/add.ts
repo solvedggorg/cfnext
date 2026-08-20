@@ -41,9 +41,19 @@ import {
   addRealtime,
   addStream,
 } from "../p3-mutate"
-import { ensureDevDependency, WORKERS_TYPES_SPEC } from "../package-json"
+import {
+  addAgent,
+  addAiGateway,
+  addAiSearch,
+  addMcpPortal,
+  addModel,
+  addWebsearch,
+  workflowFromClass,
+} from "../p4-mutate"
+import { AGENTS_SPEC, ensureDevDependency, WORKERS_TYPES_SPEC } from "../package-json"
 import { fail, run } from "../run"
 import {
+  agentStub,
   durableObjectStub,
   emailStub,
   queueStub,
@@ -212,6 +222,7 @@ function provisionEntry(kind: BindingKind, resourceName: string) {
 const P1_KINDS = new Set(["do", "workflow", "cron", "secret", "secret-store", "var"])
 const P2_KINDS = new Set(["access", "flagship", "logpush", "web-analytics"])
 const P3_KINDS = new Set(["email", "images", "image-loader", "stream", "media", "realtime"])
+const P4_KINDS = new Set(["ai-search", "ai-gateway", "model", "agent", "mcp-portal", "websearch"])
 
 function csv(value: string | undefined): string[] | undefined {
   if (!value) return undefined
@@ -313,6 +324,95 @@ function mutateP3(json: CfnextJson, kind: string, args: Args): CfnextJson {
     })
   }
   return json
+}
+
+function mutateP4(json: CfnextJson, kind: string, args: Args): CfnextJson {
+  const binding = flagString(args.flags, "binding")
+  const remote = flagBool(args.flags, "remote")
+  if (kind === "ai-search") {
+    const namespace = flagString(args.flags, "namespace")
+    const instanceName = namespace
+      ? undefined
+      : (flagString(args.flags, "name") ??
+        flagString(args.flags, "instance-name") ??
+        flagString(args.flags, "instance"))
+    if (namespace && (flagString(args.flags, "name") || flagString(args.flags, "instance-name") || flagString(args.flags, "instance"))) {
+      fail("ai-search requires instanceName xor namespace")
+    }
+    if (!namespace && !instanceName) {
+      fail("Usage: cfnext add ai-search --name <instance> | --namespace <ns>")
+    }
+    return addAiSearch(json, {
+      binding: binding ?? "AI_SEARCH",
+      ...(instanceName ? { instanceName } : {}),
+      ...(namespace ? { namespace } : {}),
+      ...(remote ? { remote: true } : {}),
+    })
+  }
+  if (kind === "ai-gateway") {
+    return addAiGateway(json, {
+      id: flagString(args.flags, "id") ?? "default",
+      ...(flagBool(args.flags, "skip") ? { skip: true } : {}),
+    })
+  }
+  if (kind === "model") {
+    const alias = flagString(args.flags, "alias") ?? flagString(args.flags, "name")
+    const id = flagString(args.flags, "id") ?? flagString(args.flags, "model")
+    if (!alias || !id) fail("Usage: cfnext add model --alias chat --id @cf/...")
+    return addModel(
+      json,
+      alias,
+      flagBool(args.flags, "public") ? { id, public: true } : id,
+    )
+  }
+  if (kind === "websearch") {
+    return addWebsearch(json, { binding: binding ?? "WEBSEARCH", ...(remote ? { remote: true } : {}) })
+  }
+  if (kind === "mcp-portal") {
+    const name = flagString(args.flags, "name")
+    if (!name) fail("Usage: cfnext add mcp-portal --name <portal> [--url <url>]")
+    const url = flagString(args.flags, "url")
+    return addMcpPortal(json, { name, ...(url ? { url } : {}) })
+  }
+  if (kind === "agent") {
+    const className = flagString(args.flags, "class")
+    if (!className) fail("Usage: cfnext add agent --class ClassName")
+    const workflowClass = flagString(args.flags, "workflow")
+    const memoryNamespace = flagString(args.flags, "memory-namespace")
+    const memoryBinding = flagString(args.flags, "memory-binding")
+    return addAgent(
+      json,
+      {
+        className,
+        binding: binding ?? screamingName(className),
+        ...(workflowClass ? { workflow: workflowFromClass(workflowClass) } : {}),
+        ...(memoryNamespace || memoryBinding
+          ? {
+              memory: {
+                binding: memoryBinding ?? "AGENT_MEMORY",
+                namespace: memoryNamespace ?? `${json.name ?? "app"}-memory`,
+              },
+            }
+          : {}),
+      },
+      { memory: !flagBool(args.flags, "no-memory") },
+    )
+  }
+  return json
+}
+
+async function writeP4Stubs(root: string, kind: string, args: Args): Promise<void> {
+  if (kind !== "agent") return
+  const className = flagString(args.flags, "class")
+  if (className) {
+    await writeStubIfMissing(root, `agents/${className}.ts`, agentStub(className))
+    await ensureDevDependency(root, "agents", AGENTS_SPEC)
+  }
+  const workflowClass = flagString(args.flags, "workflow")
+  if (workflowClass) {
+    await writeStubIfMissing(root, `workflows/${workflowClass}.ts`, workflowStub(workflowClass))
+    await ensureDevDependency(root, "@cloudflare/workers-types", WORKERS_TYPES_SPEC)
+  }
 }
 
 async function writeP3Stubs(root: string, kind: string, args: Args): Promise<void> {
@@ -566,6 +666,29 @@ export async function addCommand(args: Args): Promise<void> {
     }
     if (catalog.kind === "realtime") {
       console.log("Realtime has no wrangler key. See .cloudflare/generated/realtime.plan.json")
+    }
+    try {
+      await generate(root)
+    } catch (error) {
+      failIfGenerate(error)
+    }
+    return
+  }
+
+  if (P4_KINDS.has(catalog.kind)) {
+    const before = JSON.stringify(json)
+    try {
+      json = mutateP4(json, catalog.kind, args)
+    } catch (error) {
+      if (error instanceof MigrationError || error instanceof Error) fail(error.message)
+      throw error
+    }
+    const unchanged = JSON.stringify(json) === before
+    await writeP4Stubs(root, catalog.kind, args)
+    await writeFile(dest, stringifyJsonc(json))
+    console.log(unchanged ? `${kind} already present → ${dest}` : `added ${kind} → ${dest}`)
+    if (catalog.kind === "mcp-portal") {
+      console.log("MCP Portals are L4. See .cloudflare/generated/mcp-portals.plan.json")
     }
     try {
       await generate(root)

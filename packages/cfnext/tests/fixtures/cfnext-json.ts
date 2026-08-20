@@ -124,6 +124,7 @@ export const exampleB = {
   bindings: {
     vectorize: [{ binding: "VECTORIZE", indexName: "orion-index", dimensions: 768, metric: "cosine" }],
   },
-  agents: [{ className: "ResearchAgent" }],
+  agents: [{ className: "ResearchAgent", binding: "RESEARCH_AGENT" }],
   workflows: [{ name: "ingest", binding: "INGEST", className: "IngestWorkflow" }],
+  migrations: [{ tag: "cfnext-do-ResearchAgent", newSqliteClasses: ["ResearchAgent"] }],
 } satisfies CfnextJson

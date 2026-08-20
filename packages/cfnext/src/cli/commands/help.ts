@@ -26,12 +26,17 @@ add
            do|workflow|cron|secret|secret-store|var
            access|flagship|logpush|web-analytics
            email|images|image-loader|stream|media|realtime
+           model|ai-search|ai-gateway|agent|websearch|mcp-portal
   --binding DB                 binding name
   --name my-db                 resource name
-  --class RateLimiter          Durable Object / workflow class
+  --class RateLimiter          Durable Object / workflow / agent class
   --expr "0 * * * *"           cron expression or workflow schedule
   --consume                    queue consumer + queue.ts stub
   --inbound                    email routing + email.ts stub
+  --alias / --id               model alias → Workers AI model id
+  --public                     share a model alias via generated client module
+  --namespace                  AI Search namespace (xor --name instance)
+  --no-memory                  skip default agent_memory binding
   --kind cdn-cgi|imagedelivery image-loader URL builder
   --zone-origin https://…      cdn-cgi zone origin
   --account-hash <hash>        imagedelivery account hash

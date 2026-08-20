@@ -37,6 +37,9 @@ function handlerExports(json: CfnextJson): string[] {
   for (const item of json.durableObjects ?? []) {
     lines.push(`export { ${item.className} } from "../../durable-objects/${item.className}"`)
   }
+  for (const item of json.agents ?? []) {
+    lines.push(`export { ${item.className} } from "../../agents/${item.className}"`)
+  }
   return lines
 }
 
@@ -85,6 +88,12 @@ export function requiredStubs(json: CfnextJson): Array<{ path: string; hint: str
       hint: `cfnext add do --class ${item.className}`,
     })
   }
+  for (const item of json.agents ?? []) {
+    stubs.push({
+      path: `agents/${item.className}.ts`,
+      hint: `cfnext add agent --class ${item.className}`,
+    })
+  }
   return stubs
 }
 
@@ -106,6 +115,7 @@ export async function assertNoExportCollision(projectDir: string, json: CfnextJs
   if (json.cron?.length) extraNames.push("scheduled")
   for (const item of json.workflows ?? []) extraNames.push(item.className)
   for (const item of json.durableObjects ?? []) extraNames.push(item.className)
+  for (const item of json.agents ?? []) extraNames.push(item.className)
   const clash = extraNames.filter((name) => workerNames.includes(name))
   if (clash.length > 0) {
     throw new GenerateError(
