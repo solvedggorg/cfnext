@@ -39,3 +39,12 @@ test("composeWorker rejects extra fetch so the user owns fetch", () => {
     }),
   ).toThrow(/fetch/)
 })
+
+test("composeWorker copies email from extra", () => {
+  const base = asExportedHandler({
+    fetch: () => new Response("app"),
+  })
+  const email = async () => {}
+  const composed = composeWorker(base, { email })
+  expect(composed.email).toBe(email)
+})

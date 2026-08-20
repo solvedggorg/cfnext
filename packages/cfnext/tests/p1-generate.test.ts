@@ -183,3 +183,80 @@ test("generate exits 1 when a required stub is missing", async () => {
   await expect(generate(dir)).rejects.toBeInstanceOf(GenerateError)
   await expect(generate(dir)).rejects.toThrow(/scheduled\.ts/)
 })
+
+test("generate exits 1 when a Durable Object stub is missing", async () => {
+  const dir = await tmpProject()
+  await writeJson(dir, {
+    name: "demo",
+    target: "workers",
+    durableObjects: [{ binding: "RATE_LIMITER", className: "RateLimiter" }],
+    migrations: [{ tag: "cfnext-do-RateLimiter", newSqliteClasses: ["RateLimiter"] }],
+  })
+  await expect(generate(dir)).rejects.toThrow(/durable-objects\/RateLimiter\.ts/)
+})
+
+test("generate exits 1 when worker.ts and handlers export the same name", async () => {
+  const dir = await tmpProject()
+  await writeJson(dir, {
+    name: "demo",
+    target: "workers",
+    durableObjects: [{ binding: "RATE_LIMITER", className: "RateLimiter" }],
+    migrations: [{ tag: "cfnext-do-RateLimiter", newSqliteClasses: ["RateLimiter"] }],
+  })
+  await writeStub(dir, "durable-objects/RateLimiter.ts", "export class RateLimiter {}\n")
+  await writeFile(join(dir, "worker.ts"), "export class RateLimiter {}\nexport default { fetch() { return new Response('ok') } }\n")
+  await expect(generate(dir)).rejects.toThrow(/RateLimiter/)
+})
+
+test("generate --check fails when the handler barrel is stale", async () => {
+  const dir = await tmpProject()
+  await writeJson(dir, { name: "demo", target: "workers" })
+  await generate(dir)
+  await writeFile(join(dir, ".cloudflare/generated/handlers.ts"), "// stale\nexport {}\n")
+  await expect(generate(dir, { check: true })).rejects.toThrow(/out of date/)
+})
+
+test("P1 compiled wrangler validates against vendored wrangler schema", async () => {
+  const dir = await tmpProject()
+  await writeJson(dir, {
+    name: "demo",
+    target: "ssr",
+    bindings: {
+      queues: [{ binding: "QUEUE", queue: "demo-queue", consume: true }],
+    },
+    durableObjects: [{ binding: "RATE_LIMITER", className: "RateLimiter" }],
+    workflows: [
+      { name: "orders", binding: "ORDERS", className: "OrderWorkflow", schedules: "0 * * * *" },
+    ],
+    cron: ["0 * * * *"],
+    vars: { APP_ENV: "production" },
+    secrets: {
+      required: ["CLERK_SECRET_KEY"],
+      store: [{ binding: "STRIPE", storeId: "demo", secretName: "stripe" }],
+    },
+    migrations: [{ tag: "cfnext-do-RateLimiter", newSqliteClasses: ["RateLimiter"] }],
+  })
+  await writeStub(dir, "durable-objects/RateLimiter.ts")
+  await writeStub(dir, "workflows/OrderWorkflow.ts")
+  await writeStub(dir, "queue.ts")
+  await writeStub(dir, "scheduled.ts")
+  await generate(dir)
+
+  const wranglerPkg = Bun.resolveSync("wrangler/package.json", import.meta.dir)
+  const schema = JSON.parse(
+    await readFile(join(dirname(wranglerPkg), "config-schema.json"), "utf8"),
+  ) as object
+  const Ajv = (await import("ajv")).default
+  const ajv = new Ajv({ strict: false, allErrors: true })
+  const validate = ajv.compile(schema)
+  const wrangler = wranglerBody<Record<string, unknown>>(await readFile(join(dir, "wrangler.jsonc"), "utf8"))
+  expect(validate(wrangler), JSON.stringify(validate.errors, null, 2)).toBe(true)
+  expect(wrangler.workflows).toEqual([
+    {
+      name: "orders",
+      binding: "ORDERS",
+      class_name: "OrderWorkflow",
+      schedules: ["0 * * * *"],
+    },
+  ])
+})

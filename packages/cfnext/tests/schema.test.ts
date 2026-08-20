@@ -6,7 +6,7 @@ import Ajv2020 from "ajv/dist/2020"
 import addFormats from "ajv-formats"
 
 import schema from "../schema/cfnext.schema.json"
-import { exampleA, exampleB, p0Fixture } from "./fixtures/cfnext-json"
+import { exampleA, exampleB, p0Fixture, p1Fixture } from "./fixtures/cfnext-json"
 
 const pkgRoot = join(import.meta.dir, "..")
 
@@ -24,6 +24,13 @@ test("JSON Schema is valid draft 2020-12 and compiles", () => {
 test("P0 fixture (name, target, seven bindings) validates", () => {
   const validate = compile()
   const ok = validate(p0Fixture)
+  expect(validate.errors ?? []).toEqual([])
+  expect(ok).toBe(true)
+})
+
+test("P1 fixture (DO, workflows, cron, secrets, vars) validates", () => {
+  const validate = compile()
+  const ok = validate(p1Fixture)
   expect(validate.errors ?? []).toEqual([])
   expect(ok).toBe(true)
 })

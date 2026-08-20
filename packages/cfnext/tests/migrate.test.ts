@@ -12,6 +12,40 @@ import { splitGenerated } from "../src/generate/hash"
 
 const cli = join(import.meta.dir, "../src/cli/index.ts")
 
+test("wranglerToCfnextJson maps P1 workflows, secrets, cron, and user DOs", () => {
+  const json = wranglerToCfnextJson(
+    {
+      name: "demo",
+      main: "worker.ts",
+      compatibility_date: "2026-08-16",
+      durable_objects: {
+        bindings: [
+          { name: "NEXT_APP", class_name: "NextApp" },
+          { name: "RATE_LIMITER", class_name: "RateLimiter" },
+        ],
+      },
+      workflows: [{ name: "orders", binding: "ORDERS", class_name: "OrderWorkflow" }],
+      triggers: { crons: ["0 * * * *"] },
+      secrets: { required: ["CLERK_SECRET_KEY"] },
+      secrets_store_secrets: [{ binding: "STRIPE", store_id: "demo", secret_name: "stripe" }],
+      migrations: [
+        { tag: "v1", new_sqlite_classes: ["NextApp"] },
+        { tag: "cfnext-do-RateLimiter", new_sqlite_classes: ["RateLimiter"] },
+      ],
+    },
+    "demo",
+  )
+  expect(json.durableObjects).toEqual([{ binding: "RATE_LIMITER", className: "RateLimiter" }])
+  expect(json.workflows).toEqual([{ name: "orders", binding: "ORDERS", className: "OrderWorkflow" }])
+  expect(json.cron).toEqual(["0 * * * *"])
+  expect(json.secrets?.required).toEqual(["CLERK_SECRET_KEY"])
+  expect(json.secrets?.store).toEqual([{ binding: "STRIPE", storeId: "demo", secretName: "stripe" }])
+  expect(json.migrations).toEqual([
+    { tag: "v1", newSqliteClasses: ["NextApp"] },
+    { tag: "cfnext-do-RateLimiter", newSqliteClasses: ["RateLimiter"] },
+  ])
+})
+
 test("wranglerToCfnextJson copies container v1 migrations without synthesizing NEXT_APP as a user DO", () => {
   const json = wranglerToCfnextJson(
     {

@@ -27,7 +27,7 @@ npm install cfnext --registry https://registry1.solved.gg
 
 - **Official Adapter API** — Next 16.2 packs the build; cfnext does not fork the framework
 - **Three targets** — Workers (static / prerender), SSR on the Worker, Container (`next start`)
-- **Bindings CLI** — D1, R2, KV, Hyperdrive, Workers AI, Vectorize, Queues
+- **Bindings CLI** — D1, R2, KV, Hyperdrive, Workers AI, Vectorize, Queues, Durable Objects, Workflows, cron, secrets, vars
 - **Edge protection** — prefix gates and Clerk-style session shells before Next runs
 - **Attach existing apps** — `cfnext init --existing`
 - **Typed config** — `import { withCfnext, type CfnextUserConfig } from "cfnext"`
@@ -61,15 +61,16 @@ export default withCfnext({
 | Command | What you get |
 | --- | --- |
 | `cfnext init [dir]` | Scaffold, or `--existing` to attach |
-| `cfnext add d1\|r2\|kv\|hyperdrive\|ai\|vectorize\|queue` | Write a `cfnext.json` binding (`--provision` creates it) |
+| `cfnext add d1\|r2\|kv\|hyperdrive\|ai\|vectorize\|queue\|do\|workflow\|cron\|secret\|secret-store\|var` | Write a `cfnext.json` binding (`--provision` creates it) |
+| `cfnext rm do --class X` | Remove a Durable Object; keep the append-only migration log |
 | `cfnext generate` | Compile `cfnext.json` → hashed `wrangler.jsonc` + `cfnext.config.generated.ts` |
 | `cfnext migrate wrangler` | Import a hand-written `wrangler.jsonc` into `cfnext.json` |
 | `cfnext build` | `next build` — adapter packs `.cloudflare/assets` |
 | `cfnext deploy` | Build + `wrangler deploy` |
 | `cfnext preview` | Version upload / preview URL |
 | `cfnext dev` | `wrangler dev` against packed output |
-| `cfnext env` | Non-public `.env.local` keys → Worker secrets |
-| `cfnext types` | `cloudflare-env.d.ts` |
+| `cfnext env` | Non-public `.env.local` keys → Worker secrets and `secrets.required` |
+| `cfnext types` | `cloudflare-env.d.ts` from generated wrangler (does not run `next build`) |
 
 `init`: `--target workers|ssr|container`, `--bindings d1,r2,kv`, `--auth clerk`, `--name`, `--existing`, `--yes`.
 

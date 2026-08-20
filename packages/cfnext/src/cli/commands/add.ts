@@ -25,6 +25,7 @@ import {
   renameDurableObject,
   screamingName,
 } from "../p1-mutate"
+import { ensureDevDependency, WORKERS_TYPES_SPEC } from "../package-json"
 import { fail, run } from "../run"
 import {
   durableObjectStub,
@@ -208,18 +209,22 @@ function mutateP1(json: CfnextJson, kind: string, args: Args): CfnextJson {
     }
     if (!className) fail("Usage: cfnext add do --binding NAME --class ClassName")
     const binding = flagString(args.flags, "binding") ?? className
-    return addDurableObject(json, { binding, className })
+    return addDurableObject(json, {
+      binding,
+      className,
+      ...(flagBool(args.flags, "no-sqlite") ? { sqlite: false } : {}),
+    })
   }
   if (kind === "workflow") {
     if (!className) fail("Usage: cfnext add workflow --name name --binding NAME --class ClassName")
     const name = flagString(args.flags, "name") ?? kebabFromClass(className)
     const binding = flagString(args.flags, "binding") ?? screamingName(name)
-    const expr = flagString(args.flags, "expr")
+    const expr = flagString(args.flags, "expr") ?? flagString(args.flags, "schedules")
     return addWorkflow(json, {
       name,
       binding,
       className,
-      ...(expr ? { schedules: expr } : {}),
+      ...(expr ? { schedules: [expr] } : {}),
     })
   }
   if (kind === "cron") {
@@ -256,13 +261,16 @@ async function writeP1Stubs(root: string, kind: string, args: Args): Promise<voi
   if (kind === "do" && rename) {
     const to = rename.split(":")[1]
     if (to) await writeStubIfMissing(root, `durable-objects/${to}.ts`, durableObjectStub(to))
+    await ensureDevDependency(root, "@cloudflare/workers-types", WORKERS_TYPES_SPEC)
     return
   }
   if (kind === "do" && className && !flagBool(args.flags, "delete")) {
     await writeStubIfMissing(root, `durable-objects/${className}.ts`, durableObjectStub(className))
+    await ensureDevDependency(root, "@cloudflare/workers-types", WORKERS_TYPES_SPEC)
   }
   if (kind === "workflow" && className) {
     await writeStubIfMissing(root, `workflows/${className}.ts`, workflowStub(className))
+    await ensureDevDependency(root, "@cloudflare/workers-types", WORKERS_TYPES_SPEC)
   }
   if (kind === "cron") {
     await writeStubIfMissing(root, "scheduled.ts", scheduledStub())
@@ -349,15 +357,17 @@ export async function addCommand(args: Args): Promise<void> {
   json.name ??= inferName(root)
 
   if (P1_KINDS.has(catalog.kind)) {
+    const before = JSON.stringify(json)
     try {
       json = mutateP1(json, catalog.kind, args)
     } catch (error) {
       if (error instanceof MigrationError || error instanceof Error) fail(error.message)
       throw error
     }
+    const unchanged = JSON.stringify(json) === before
     await writeP1Stubs(root, catalog.kind, args)
     await writeFile(dest, stringifyJsonc(json))
-    console.log(`added ${kind} → ${dest}`)
+    console.log(unchanged ? `${kind} already present → ${dest}` : `added ${kind} → ${dest}`)
     try {
       await generate(root)
     } catch (error) {

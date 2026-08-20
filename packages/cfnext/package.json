@@ -1,6 +1,6 @@
 {
   "name": "cfnext",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Next.js adapter and CLI for Cloudflare Workers compute and Containers (D1, R2, KV, and more). Bun-first. No OpenNext.",
   "license": "MIT",

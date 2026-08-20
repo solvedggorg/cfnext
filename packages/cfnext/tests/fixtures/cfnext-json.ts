@@ -15,6 +15,24 @@ export const p0Fixture = {
   ai: { binding: "AI" },
 } satisfies CfnextJson
 
+export const p1Fixture = {
+  ...p0Fixture,
+  durableObjects: [{ binding: "RATE_LIMITER", className: "RateLimiter" }],
+  workflows: [{ name: "orders", binding: "ORDERS", className: "OrderWorkflow" }],
+  cron: ["0 * * * *"],
+  vars: { APP_ENV: "production" },
+  secrets: {
+    required: ["CLERK_SECRET_KEY"],
+    store: [{ binding: "STRIPE", storeId: "demo", secretName: "stripe" }],
+  },
+  migrations: [{ tag: "cfnext-do-RateLimiter", newSqliteClasses: ["RateLimiter"] }],
+  bindings: {
+    ...p0Fixture.bindings,
+    queues: [{ binding: "QUEUE", queue: "demo-queue", consume: true }],
+    versionMetadata: true,
+  },
+} satisfies CfnextJson
+
 export const exampleA = {
   $schema: "./node_modules/cfnext/schema/cfnext.schema.json",
   name: "acme",

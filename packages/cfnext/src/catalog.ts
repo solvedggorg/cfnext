@@ -213,7 +213,9 @@ function emitWorkflows(json: CfnextJson, wrangler: WranglerConfig): void {
       class_name: item.className,
     }
     if (item.scriptName) row.script_name = item.scriptName
-    if (item.schedules) row.schedules = item.schedules
+    if (item.schedules) {
+      row.schedules = Array.isArray(item.schedules) ? item.schedules : [item.schedules]
+    }
     wrangler.workflows = pushUnique(wrangler.workflows, row)
   }
 }
@@ -437,7 +439,7 @@ export const CATALOG: CatalogKind[] = [
     emitImplemented: true,
     level: 3,
     phase: "P1",
-    wranglerAllowlist: ["name", "binding", "class_name", "script_name"],
+    wranglerAllowlist: ["name", "binding", "class_name", "script_name", "schedules"],
     defaults: () => ({ binding: "WORKFLOW" }),
   },
   {

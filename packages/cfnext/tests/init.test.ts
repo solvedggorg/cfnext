@@ -58,9 +58,29 @@ test("ssr scaffold writes the SSR worker and a dynamic health route", () => {
   const wrangler = parseJsonc<{
     compatibility_flags?: string[]
     assets?: { run_worker_first?: boolean | string[] }
+    main?: string
+    version_metadata?: { binding: string }
   }>(files["wrangler.jsonc"]!)
   expect(wrangler.compatibility_flags).toContain("nodejs_compat")
   expect(wrangler.assets?.run_worker_first).toBe(true)
+  expect(wrangler.main).toBe(".cloudflare/generated/worker.ts")
+  expect(wrangler.version_metadata?.binding).toBe("CF_VERSION_METADATA")
+  expect(files[".cloudflare/generated/worker.ts"]).toContain("composeWorker")
+})
+
+test("workers scaffold does not emit version_metadata by default", () => {
+  const files = renderFiles({
+    dirName: "demo",
+    name: "demo",
+    target: "workers",
+    bindings: [],
+    packageSpecifier: "file:../cfnext",
+  })
+  const wrangler = parseJsonc<{ main?: string; version_metadata?: { binding: string } }>(
+    files["wrangler.jsonc"]!,
+  )
+  expect(wrangler.main).toBe(".cloudflare/generated/worker.ts")
+  expect(wrangler.version_metadata).toBeUndefined()
 })
 
 test("init --skip-install writes a real directory", async () => {

@@ -27,8 +27,11 @@ add
   --binding DB                 binding name
   --name my-db                 resource name
   --class RateLimiter          Durable Object / workflow class
-  --expr "0 * * * *"           cron expression
+  --expr "0 * * * *"           cron expression or workflow schedule
   --consume                    queue consumer + queue.ts stub
+  --store-id / --secret-name   Secrets Store
+  --value                      var value
+  --no-sqlite                  Durable Object uses new_classes (not SQLite)
   --provision                  run the matching wrangler create command
   --environment staging        write into env.staging (not preview/production)
   --preview-id <id>            local/miniflare preview resource id

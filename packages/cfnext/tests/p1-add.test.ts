@@ -139,3 +139,106 @@ test("cfnext add secret and var write JSON fields", async () => {
   expect(json.secrets?.required).toEqual(["STRIPE_SECRET_KEY"])
   expect(json.vars).toEqual({ APP_ENV: "production" })
 })
+
+test("cfnext add do refuses reserved NEXT_APP / NextApp", async () => {
+  const dir = await tmpDir()
+  await seed(dir)
+  const binding = await runCli(dir, ["add", "do", "--binding", "NEXT_APP", "--class", "Limiter"])
+  expect(binding.code).toBe(1)
+  expect(binding.stderr).toMatch(/NEXT_APP|NextApp/)
+  const klass = await runCli(dir, ["add", "do", "--binding", "APP", "--class", "NextApp"])
+  expect(klass.code).toBe(1)
+  expect(klass.stderr).toMatch(/NEXT_APP|NextApp/)
+})
+
+test("cfnext add do --no-sqlite appends newClasses instead of newSqliteClasses", async () => {
+  const dir = await tmpDir()
+  await seed(dir)
+  const result = await runCli(dir, ["add", "do", "--binding", "LEGACY", "--class", "Legacy", "--no-sqlite"])
+  expect(result.code, `${result.stdout}\n${result.stderr}`).toBe(0)
+  const json = parseJsonc<CfnextJson>(await readFile(join(dir, "cfnext.json"), "utf8"))
+  expect(json.durableObjects?.[0]).toEqual({ binding: "LEGACY", className: "Legacy", sqlite: false })
+  expect(json.migrations).toEqual([{ tag: "cfnext-do-Legacy", newClasses: ["Legacy"] }])
+})
+
+test("cfnext add do is idempotent for the same binding and class", async () => {
+  const dir = await tmpDir()
+  await seed(dir)
+  expect((await runCli(dir, ["add", "do", "--binding", "RATE_LIMITER", "--class", "RateLimiter"])).code).toBe(0)
+  const second = await runCli(dir, ["add", "do", "--binding", "RATE_LIMITER", "--class", "RateLimiter"])
+  expect(second.code, `${second.stdout}\n${second.stderr}`).toBe(0)
+  expect(second.stdout + second.stderr).toMatch(/already/)
+  const json = parseJsonc<CfnextJson>(await readFile(join(dir, "cfnext.json"), "utf8"))
+  expect(json.migrations).toEqual([{ tag: "cfnext-do-RateLimiter", newSqliteClasses: ["RateLimiter"] }])
+})
+
+test("cfnext add do refuses to reuse a binding for a different class", async () => {
+  const dir = await tmpDir()
+  await seed(dir)
+  expect((await runCli(dir, ["add", "do", "--binding", "RATE_LIMITER", "--class", "RateLimiter"])).code).toBe(0)
+  const result = await runCli(dir, ["add", "do", "--binding", "RATE_LIMITER", "--class", "Other"])
+  expect(result.code).toBe(1)
+  expect(result.stderr).toMatch(/RATE_LIMITER|rename/i)
+})
+
+test("cfnext add workflow --expr emits schedules as an array", async () => {
+  const dir = await tmpDir()
+  await seed(dir)
+  const result = await runCli(dir, [
+    "add",
+    "workflow",
+    "--name",
+    "orders",
+    "--binding",
+    "ORDERS",
+    "--class",
+    "OrderWorkflow",
+    "--expr",
+    "0 * * * *",
+  ])
+  expect(result.code, `${result.stdout}\n${result.stderr}`).toBe(0)
+  const json = parseJsonc<CfnextJson>(await readFile(join(dir, "cfnext.json"), "utf8"))
+  expect(json.workflows?.[0]?.schedules).toEqual(["0 * * * *"])
+  const wrangler = parseJsonc<{ workflows?: Array<{ schedules?: string[] }> }>(
+    splitGenerated(await readFile(join(dir, "wrangler.jsonc"), "utf8")).body,
+  )
+  expect(wrangler.workflows?.[0]?.schedules).toEqual(["0 * * * *"])
+})
+
+test("cfnext add do adds @cloudflare/workers-types when missing", async () => {
+  const dir = await tmpDir()
+  await writeFile(
+    join(dir, "package.json"),
+    JSON.stringify({ name: "demo", private: true, devDependencies: {} }, null, 2),
+  )
+  await seed(dir)
+  const result = await runCli(dir, ["add", "do", "--binding", "RATE_LIMITER", "--class", "RateLimiter"])
+  expect(result.code, `${result.stdout}\n${result.stderr}`).toBe(0)
+  const pkg = JSON.parse(await readFile(join(dir, "package.json"), "utf8")) as {
+    devDependencies?: Record<string, string>
+  }
+  expect(pkg.devDependencies?.["@cloudflare/workers-types"]).toBeDefined()
+})
+
+test("container rm do keeps NEXT_APP and the v1 migration tag", async () => {
+  const dir = await tmpDir()
+  await writeFile(
+    join(dir, "worker.ts"),
+    `export class NextApp {}\nexport default { fetch() { return new Response("ok") } }\n`,
+  )
+  await writeFile(join(dir, "cfnext.json"), JSON.stringify({ name: "demo", target: "container" }, null, 2))
+  await generate(dir)
+  expect((await runCli(dir, ["add", "do", "--binding", "RATE_LIMITER", "--class", "RateLimiter"])).code).toBe(0)
+  const result = await runCli(dir, ["rm", "do", "--class", "RateLimiter"])
+  expect(result.code, `${result.stdout}\n${result.stderr}`).toBe(0)
+  const wrangler = parseJsonc<{
+    durable_objects?: { bindings?: Array<{ name: string; class_name: string }> }
+    migrations?: Array<{ tag: string }>
+  }>(splitGenerated(await readFile(join(dir, "wrangler.jsonc"), "utf8")).body)
+  expect(wrangler.durable_objects?.bindings).toEqual([{ name: "NEXT_APP", class_name: "NextApp" }])
+  expect(wrangler.migrations?.map((row) => row.tag)).toEqual([
+    "v1",
+    "cfnext-do-RateLimiter",
+    "cfnext-do-RateLimiter-del",
+  ])
+})

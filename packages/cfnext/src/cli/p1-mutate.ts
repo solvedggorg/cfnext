@@ -24,12 +24,28 @@ export function addDurableObject(
 ): CfnextJson {
   assertReservedDo(entry)
   const current = json.durableObjects ?? []
-  const index = current.findIndex((item) => item.binding === entry.binding || item.className === entry.className)
-  const durableObjects =
-    index === -1
-      ? [...current, entry]
-      : current.map((item, i) => (i === index ? { ...item, ...entry } : item))
-  return appendCreateMigration({ ...json, durableObjects }, entry.className, entry.sqlite !== false)
+  const byBinding = current.find((item) => item.binding === entry.binding)
+  const byClass = current.find((item) => item.className === entry.className)
+  if (byBinding && byBinding.className !== entry.className) {
+    throw new Error(
+      `binding ${entry.binding} already maps to ${byBinding.className}. Use \`cfnext add do --rename ${byBinding.className}:${entry.className}\`.`,
+    )
+  }
+  if (byClass && byClass.binding !== entry.binding) {
+    throw new Error(
+      `class ${entry.className} is already bound as ${byClass.binding}`,
+    )
+  }
+  if (byBinding && byClass) return json
+  const stored: DurableObjectEntry =
+    entry.sqlite === false
+      ? { binding: entry.binding, className: entry.className, sqlite: false, ...(entry.scriptName ? { scriptName: entry.scriptName } : {}) }
+      : { binding: entry.binding, className: entry.className, ...(entry.scriptName ? { scriptName: entry.scriptName } : {}) }
+  return appendCreateMigration(
+    { ...json, durableObjects: [...current, stored] },
+    entry.className,
+    entry.sqlite !== false,
+  )
 }
 
 export function removeDurableObject(json: CfnextJson, className: string): CfnextJson {

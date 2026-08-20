@@ -18,6 +18,7 @@ const BOOLEAN_FLAGS = new Set([
   "dry-run",
   "consume",
   "delete",
+  "no-sqlite",
 ])
 
 export function parseArgs(argv: string[]): Args {
