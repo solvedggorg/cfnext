@@ -2,10 +2,17 @@ import { existsSync } from "node:fs"
 import { mkdir, writeFile, unlink } from "node:fs/promises"
 import { join } from "node:path"
 
+import { findCfnextJson } from "../../config"
+import { generate } from "../../generate"
+import { parseJsonc, stringifyJsonc } from "../../jsonc"
+import type { CfnextJson } from "../../schema"
+import { type Args, flagString } from "../args"
+import { failIfGenerate } from "../fail-generate"
 import { findProjectRoot } from "../find-root"
+import { unionRequiredSecrets } from "../p1-mutate"
 import { fail, run } from "../run"
 
-export async function envCommand(): Promise<void> {
+export async function envCommand(args: Args): Promise<void> {
   const root = findProjectRoot()
   const envFile = join(root, ".env.local")
   if (!existsSync(envFile)) fail("Missing .env.local")
@@ -36,12 +43,31 @@ export async function envCommand(): Promise<void> {
     return
   }
 
+  const keys = Object.keys(secrets)
+  const jsonPath = findCfnextJson(root)
+  const environment = flagString(args.flags, "environment")
+  if (jsonPath) {
+    const json = parseJsonc<CfnextJson>(await readFileJson(jsonPath))
+    const next = writeRequiredSecrets(json, keys, environment)
+    await writeFile(jsonPath, stringifyJsonc(next))
+    try {
+      await generate(root)
+    } catch (error) {
+      failIfGenerate(error)
+    }
+  }
+
+  if (process.env.CFNEXT_SKIP_SECRET_BULK === "1") {
+    console.log(`synced ${keys.length} secrets.required (upload skipped)`)
+    return
+  }
+
   const tmp = join(root, ".cloudflare/secrets.json")
   await mkdir(join(root, ".cloudflare"), { recursive: true })
   await writeFile(tmp, JSON.stringify(secrets, null, 2))
   try {
     await run(["bun", "x", "wrangler", "secret", "bulk", tmp], root)
-    console.log(`synced ${Object.keys(secrets).length} secrets`)
+    console.log(`synced ${keys.length} secrets`)
   } finally {
     await writeFile(tmp, "{}\n")
     try {
@@ -49,5 +75,36 @@ export async function envCommand(): Promise<void> {
     } catch {
       // ignore
     }
+  }
+}
+
+async function readFileJson(path: string): Promise<string> {
+  return Bun.file(path).text()
+}
+
+function writeRequiredSecrets(json: CfnextJson, keys: string[], environment?: string): CfnextJson {
+  const targetEnv = environment && environment !== "preview" ? environment : undefined
+  if (targetEnv === "production") {
+    fail("Use the top-level secrets for production. env.production is illegal.")
+  }
+  if (!targetEnv) {
+    return {
+      ...json,
+      secrets: { ...json.secrets, required: unionRequiredSecrets(json.secrets?.required, keys) },
+    }
+  }
+  const overlay = json.env?.[targetEnv] ?? {}
+  return {
+    ...json,
+    env: {
+      ...json.env,
+      [targetEnv]: {
+        ...overlay,
+        secrets: {
+          ...overlay.secrets,
+          required: unionRequiredSecrets(overlay.secrets?.required, keys),
+        },
+      },
+    },
   }
 }

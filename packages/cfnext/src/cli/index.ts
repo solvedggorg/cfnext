@@ -9,6 +9,7 @@ import { HELP } from "./commands/help"
 import { initCommand } from "./commands/init"
 import { generateCommand } from "./commands/generate"
 import { migrateCommand } from "./commands/migrate"
+import { rmCommand } from "./commands/rm"
 import { typesCommand } from "./commands/types"
 import { requireBun } from "./run"
 
@@ -26,6 +27,10 @@ switch (args.command) {
     break
   case "add":
     await addCommand(args)
+    break
+  case "rm":
+  case "remove":
+    await rmCommand(args)
     break
   case "generate":
     await generateCommand(args)
@@ -47,7 +52,7 @@ switch (args.command) {
     await devCommand()
     break
   case "env":
-    await envCommand()
+    await envCommand(args)
     break
   case "types":
   case "typegen":

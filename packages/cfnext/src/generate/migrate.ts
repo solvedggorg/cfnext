@@ -4,6 +4,7 @@ import { join } from "node:path"
 
 import { inferName } from "../config"
 import { parseJsonc, stringifyJsonc } from "../jsonc"
+import { importWranglerMigrations } from "../migrations"
 import type { CfnextBindings, CfnextEnvOverlay, CfnextJson } from "../schema"
 import { wranglerPath, type WranglerConfig } from "../wrangler"
 import { GenerateError } from "./errors"
@@ -33,6 +34,12 @@ const MAPPED_KEYS = new Set([
   "vectorize",
   "queues",
   "env",
+  "vars",
+  "secrets",
+  "secrets_store_secrets",
+  "workflows",
+  "triggers",
+  "version_metadata",
 ])
 
 function str(value: unknown): string | undefined {
@@ -78,13 +85,64 @@ function mapBindings(wrangler: WranglerConfig): CfnextBindings | undefined {
       indexName: str(row.index_name),
     }))
   }
-  if (wrangler.queues?.producers?.length) {
-    bindings.queues = wrangler.queues.producers.map((row) => ({
-      binding: String(row.binding),
-      queue: String(row.queue),
-    }))
+  if (wrangler.queues?.producers?.length || wrangler.queues?.consumers?.length) {
+    const consumers = new Set((wrangler.queues.consumers ?? []).map((row) => String(row.queue)))
+    const producers = wrangler.queues.producers ?? []
+    const seen = new Set<string>()
+    bindings.queues = []
+    for (const row of producers) {
+      const queue = String(row.queue)
+      seen.add(queue)
+      bindings.queues.push({
+        binding: String(row.binding),
+        queue,
+        consume: consumers.has(queue),
+      })
+    }
+    for (const row of wrangler.queues.consumers ?? []) {
+      const queue = String(row.queue)
+      if (seen.has(queue)) continue
+      bindings.queues.push({ binding: queue.toUpperCase(), queue, consume: true, produce: false })
+    }
+  }
+  if (wrangler.version_metadata?.binding) {
+    bindings.versionMetadata = { binding: wrangler.version_metadata.binding }
   }
   return Object.keys(bindings).length > 0 ? bindings : undefined
+}
+
+function mapP1Fields(wrangler: WranglerConfig | Partial<WranglerConfig>, json: CfnextJson | CfnextEnvOverlay): void {
+  if (wrangler.vars) json.vars = wrangler.vars
+  if (wrangler.secrets?.required?.length) {
+    json.secrets = { ...json.secrets, required: wrangler.secrets.required }
+  }
+  if (wrangler.secrets_store_secrets?.length) {
+    json.secrets = {
+      ...json.secrets,
+      store: wrangler.secrets_store_secrets.map((row) => ({
+        binding: String(row.binding),
+        storeId: String(row.store_id),
+        secretName: String(row.secret_name),
+      })),
+    }
+  }
+  if (wrangler.workflows?.length) {
+    json.workflows = wrangler.workflows.map((row) => ({
+      name: String(row.name),
+      binding: String(row.binding),
+      className: String(row.class_name),
+      ...(row.script_name ? { scriptName: String(row.script_name) } : {}),
+    }))
+  }
+  if (wrangler.triggers?.crons?.length) json.cron = wrangler.triggers.crons
+  const userDos = (wrangler.durable_objects?.bindings ?? []).filter((row) => row.name !== "NEXT_APP")
+  if (userDos.length) {
+    json.durableObjects = userDos.map((row) => ({
+      binding: row.name,
+      className: row.class_name,
+      ...(row.script_name ? { scriptName: row.script_name } : {}),
+    }))
+  }
 }
 
 function wranglerToOverlay(wrangler: Partial<WranglerConfig>): CfnextEnvOverlay {
@@ -97,6 +155,7 @@ function wranglerToOverlay(wrangler: Partial<WranglerConfig>): CfnextEnvOverlay 
   const bindings = mapBindings(wrangler as WranglerConfig)
   if (bindings) overlay.bindings = bindings
   if (wrangler.ai?.binding) overlay.ai = { binding: wrangler.ai.binding }
+  mapP1Fields(wrangler, overlay)
   const passthrough: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(wrangler)) {
     if (COMPILER_OWNED.has(key) || MAPPED_KEYS.has(key) || key === "vars") continue
@@ -125,6 +184,9 @@ export function wranglerToCfnextJson(wrangler: WranglerConfig, fallbackName: str
   const bindings = mapBindings(wrangler)
   if (bindings) json.bindings = bindings
   if (wrangler.ai?.binding) json.ai = { binding: wrangler.ai.binding }
+  mapP1Fields(wrangler, json)
+  const migrations = importWranglerMigrations(wrangler.migrations)
+  if (migrations) json.migrations = migrations
 
   if (wrangler.env) {
     json.env = {}

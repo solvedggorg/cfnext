@@ -7,6 +7,7 @@ import type {
   R2Binding,
   VectorizeBinding,
 } from "./schema"
+import { assertReservedDo, emitMigrations } from "./migrations"
 import type { WranglerConfig } from "./wrangler"
 
 export type CatalogKind = {
@@ -167,18 +168,92 @@ function emitVectorize(entry: unknown, wrangler: WranglerConfig): void {
 
 function emitQueue(entry: unknown, wrangler: WranglerConfig): void {
   const item = entry as QueueBinding
-  if (item.consume) {
-    throw new CatalogError(
-      "bindings.queues[].consume is not implemented in this version (P1). Omit consume or set consume: false.",
-    )
-  }
   if (!item.queue) throw new CatalogError(`queue binding ${item.binding} requires queue`)
   const queues = wrangler.queues ?? {}
   const producers = queues.producers ?? []
   if (item.produce !== false && !producers.some((row) => row.binding === item.binding)) {
     producers.push({ binding: item.binding, queue: item.queue })
   }
-  wrangler.queues = { ...queues, producers }
+  const consumers = [...(queues.consumers ?? [])]
+  if (item.consume && !consumers.some((row) => row.queue === item.queue)) {
+    const row: Record<string, unknown> = { queue: item.queue }
+    if (item.maxBatchSize != null) row.max_batch_size = item.maxBatchSize
+    if (item.maxBatchTimeout != null) row.max_batch_timeout = item.maxBatchTimeout
+    if (item.maxRetries != null) row.max_retries = item.maxRetries
+    if (item.deadLetterQueue) row.dead_letter_queue = item.deadLetterQueue
+    if (item.deliveryDelay != null) row.retry_delay = item.deliveryDelay
+    consumers.push(row)
+  }
+  wrangler.queues = { ...queues, producers, ...(consumers.length > 0 ? { consumers } : {}) }
+}
+
+function emitDurableObjects(json: CfnextJson, wrangler: WranglerConfig): void {
+  const bindings = [...(wrangler.durable_objects?.bindings ?? [])]
+  if (json.target === "container" && !bindings.some((row) => row.name === "NEXT_APP")) {
+    bindings.unshift({ name: "NEXT_APP", class_name: "NextApp" })
+  }
+  for (const item of json.durableObjects ?? []) {
+    assertReservedDo(item)
+    if (bindings.some((row) => row.name === item.binding)) continue
+    bindings.push({
+      name: item.binding,
+      class_name: item.className,
+      ...(item.scriptName ? { script_name: item.scriptName } : {}),
+    })
+  }
+  if (bindings.length > 0) wrangler.durable_objects = { bindings }
+  else delete wrangler.durable_objects
+}
+
+function emitWorkflows(json: CfnextJson, wrangler: WranglerConfig): void {
+  for (const item of json.workflows ?? []) {
+    const row: Record<string, unknown> = {
+      name: item.name,
+      binding: item.binding,
+      class_name: item.className,
+    }
+    if (item.scriptName) row.script_name = item.scriptName
+    if (item.schedules) row.schedules = item.schedules
+    wrangler.workflows = pushUnique(wrangler.workflows, row)
+  }
+}
+
+function emitCron(json: CfnextJson, wrangler: WranglerConfig): void {
+  if (!json.cron?.length) return
+  wrangler.triggers = { ...wrangler.triggers, crons: json.cron }
+}
+
+function emitSecrets(json: CfnextJson, wrangler: WranglerConfig): void {
+  if (json.secrets?.required?.length) {
+    wrangler.secrets = { ...wrangler.secrets, required: json.secrets.required }
+  }
+  if (json.secrets?.store?.length) {
+    for (const item of json.secrets.store) {
+      wrangler.secrets_store_secrets = pushUnique(wrangler.secrets_store_secrets, {
+        binding: item.binding,
+        store_id: item.storeId,
+        secret_name: item.secretName,
+      })
+    }
+  }
+}
+
+function emitVars(json: CfnextJson, wrangler: WranglerConfig): void {
+  if (!json.vars || Object.keys(json.vars).length === 0) return
+  wrangler.vars = { ...wrangler.vars, ...json.vars }
+}
+
+function emitVersionMetadata(json: CfnextJson, wrangler: WranglerConfig): void {
+  const vm = json.bindings?.versionMetadata
+  if (vm === false) return
+  if (vm && typeof vm === "object") {
+    wrangler.version_metadata = { binding: vm.binding }
+    return
+  }
+  const target = json.target ?? "workers"
+  if (vm === true || target === "ssr" || target === "container") {
+    wrangler.version_metadata = { binding: "CF_VERSION_METADATA" }
+  }
 }
 
 export const CATALOG: CatalogKind[] = [
@@ -321,7 +396,15 @@ export const CATALOG: CatalogKind[] = [
     emitImplemented: true,
     level: 3,
     phase: "P0",
-    wranglerAllowlist: ["binding", "queue"],
+    wranglerAllowlist: [
+      "binding",
+      "queue",
+      "max_batch_size",
+      "max_batch_timeout",
+      "max_retries",
+      "dead_letter_queue",
+      "retry_delay",
+    ],
     defaults: (app) => ({ binding: "QUEUE", resource: `${app}-queue` }),
     emit: emitQueue,
     provision: (entry, app) => [
@@ -339,7 +422,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "durable_objects",
     jsonPath: "durableObjects",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 3,
     phase: "P1",
     reservedBindings: ["NEXT_APP"],
@@ -351,7 +434,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "workflows",
     jsonPath: "workflows",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 3,
     phase: "P1",
     wranglerAllowlist: ["name", "binding", "class_name", "script_name"],
@@ -362,7 +445,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "triggers",
     jsonPath: "cron",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 3,
     phase: "P1",
     wranglerAllowlist: ["crons"],
@@ -373,7 +456,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "secrets",
     jsonPath: "secrets.required",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 2,
     phase: "P1",
     wranglerAllowlist: ["required"],
@@ -384,7 +467,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "secrets_store_secrets",
     jsonPath: "secrets.store",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 2,
     phase: "P1",
     wranglerAllowlist: ["binding", "store_id", "secret_name"],
@@ -395,7 +478,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "vars",
     jsonPath: "vars",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 1,
     phase: "P1",
     wranglerAllowlist: [],
@@ -667,7 +750,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "version_metadata",
     jsonPath: "bindings.versionMetadata",
     add: false,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 1,
     phase: "P1",
     wranglerAllowlist: ["binding"],
@@ -714,6 +797,13 @@ export function emitImplementedBindings(json: CfnextJson, wrangler: WranglerConf
     if (!item.omit) emitQueue(item, wrangler)
   }
   if (json.ai?.binding) emitAi(json.ai, wrangler)
+  emitDurableObjects(json, wrangler)
+  emitWorkflows(json, wrangler)
+  emitCron(json, wrangler)
+  emitSecrets(json, wrangler)
+  emitVars(json, wrangler)
+  emitVersionMetadata(json, wrangler)
+  emitMigrations(json, wrangler)
 }
 
 export const P0_BINDING_KINDS = ["d1", "r2", "kv", "hyperdrive", "ai", "vectorize", "queue"] as const

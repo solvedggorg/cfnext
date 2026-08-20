@@ -12,6 +12,23 @@ import { splitGenerated } from "../src/generate/hash"
 
 const cli = join(import.meta.dir, "../src/cli/index.ts")
 
+test("wranglerToCfnextJson copies container v1 migrations without synthesizing NEXT_APP as a user DO", () => {
+  const json = wranglerToCfnextJson(
+    {
+      name: "demo",
+      main: "worker.ts",
+      compatibility_date: "2026-08-16",
+      containers: [{ class_name: "NextApp" }],
+      durable_objects: { bindings: [{ name: "NEXT_APP", class_name: "NextApp" }] },
+      migrations: [{ tag: "v1", new_sqlite_classes: ["NextApp"] }],
+    },
+    "demo",
+  )
+  expect(json.target).toBe("container")
+  expect(json.durableObjects).toBeUndefined()
+  expect(json.migrations).toEqual([{ tag: "v1", newSqliteClasses: ["NextApp"] }])
+})
+
 test("wranglerToCfnextJson maps P0 bindings", () => {
   const json = wranglerToCfnextJson(
     {

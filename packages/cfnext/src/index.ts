@@ -25,6 +25,7 @@ export {
   type ContainerEnv,
 } from "./worker/container"
 export { createSsrWorker, shouldBypassPrerender } from "./worker/ssr"
+export { asExportedHandler, composeWorker } from "./worker/compose"
 export { getCloudflareContext, runWithCloudflareContext } from "./ssr/context"
 export { matchRoute } from "./ssr/match"
 export { applyBinding, BINDING_KINDS, type BindingKind } from "./bindings"

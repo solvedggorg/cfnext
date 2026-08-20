@@ -4,6 +4,8 @@ import { CFNEXT_VERSION } from "../constants"
 import { compileWrangler } from "../generate/wrangler"
 import { stampGenerated } from "../generate/hash"
 import { renderRuntimeConfig } from "../generate/runtime-config"
+import { GENERATED_HANDLERS, GENERATED_WORKER, renderGeneratedHandlers, renderGeneratedWorker } from "../generate/worker"
+import { seedContainerMigration } from "../migrations"
 import { stringifyJsonc } from "../jsonc"
 import { PROTECTED_PREFIXES, clerkShells } from "../protect-clerk"
 import type { CfnextConfig, DeployTarget } from "../config"
@@ -79,7 +81,7 @@ export function scaffoldJson(opts: InitOptions): CfnextJson {
     }
   }
   if (json.bindings && Object.keys(json.bindings).length === 0) delete json.bindings
-  return json
+  return seedContainerMigration(json)
 }
 
 export function renderFiles(opts: InitOptions): Record<string, string> {
@@ -98,6 +100,8 @@ export function renderFiles(opts: InitOptions): Record<string, string> {
       opts.auth === "clerk" ? { shells: "clerkShells" } : null,
     ),
     "wrangler.jsonc": wranglerText,
+    [GENERATED_WORKER]: renderGeneratedWorker(),
+    [GENERATED_HANDLERS]: renderGeneratedHandlers(json),
     "worker.ts": workerFile(opts.target),
     "bunfig.toml": "[run]\nbun = true\n",
     ".gitignore": gitignore(),

@@ -31,6 +31,8 @@ export type WranglerConfig = {
   ai?: { binding: string; remote?: boolean }
   vars?: Record<string, string | number | boolean>
   secrets?: { required?: string[] }
+  secrets_store_secrets?: Array<Record<string, unknown>>
+  version_metadata?: { binding: string }
   env?: Record<string, Partial<WranglerConfig>>
   vectorize?: Array<Record<string, unknown>>
   queues?: {
@@ -39,9 +41,11 @@ export type WranglerConfig = {
   }
   containers?: Array<Record<string, unknown>>
   durable_objects?: {
-    bindings: Array<{ name: string; class_name: string }>
+    bindings: Array<{ name: string; class_name: string; script_name?: string }>
   }
   migrations?: Array<Record<string, unknown>>
+  workflows?: Array<Record<string, unknown>>
+  triggers?: { crons?: string[] }
 }
 
 export function wranglerPath(projectDir: string): string {

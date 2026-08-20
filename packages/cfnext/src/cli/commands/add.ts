@@ -7,12 +7,32 @@ import { catalogKind, implementedAddKinds } from "../../catalog"
 import { findCfnextJson, inferName, loadConfig } from "../../config"
 import { generate, splitGenerated } from "../../generate"
 import { parseJsonc, stringifyJsonc } from "../../jsonc"
+import { MigrationError } from "../../migrations"
 import type { CfnextBindings, CfnextJson } from "../../schema"
 import { ensureWrangler, mergeWrangler, wranglerPath } from "../../wrangler"
 import { type Args, flagBool, flagString } from "../args"
 import { failIfGenerate } from "../fail-generate"
-import { fail, run } from "../run"
 import { findProjectRoot } from "../find-root"
+import {
+  addCron,
+  addDurableObject,
+  addRequiredSecret,
+  addSecretStore,
+  addVar,
+  addWorkflow,
+  kebabFromClass,
+  removeDurableObject,
+  renameDurableObject,
+  screamingName,
+} from "../p1-mutate"
+import { fail, run } from "../run"
+import {
+  durableObjectStub,
+  queueStub,
+  scheduledStub,
+  workflowStub,
+  writeStubIfMissing,
+} from "../stubs"
 
 const D1_INIT_SQL = "-- Apply with: bun x wrangler d1 migrations apply DB --local\n"
 
@@ -171,21 +191,99 @@ function provisionEntry(kind: BindingKind, resourceName: string) {
   }
 }
 
+const P1_KINDS = new Set(["do", "workflow", "cron", "secret", "secret-store", "var"])
+
+function mutateP1(json: CfnextJson, kind: string, args: Args): CfnextJson {
+  const className = flagString(args.flags, "class")
+  const rename = flagString(args.flags, "rename")
+  if (kind === "do") {
+    if (rename) {
+      const [from, to] = rename.split(":")
+      if (!from || !to) fail("Usage: cfnext add do --rename Old:New")
+      return renameDurableObject(json, from, to)
+    }
+    if (flagBool(args.flags, "delete")) {
+      if (!className) fail("Usage: cfnext add do --delete --class Name")
+      return removeDurableObject(json, className)
+    }
+    if (!className) fail("Usage: cfnext add do --binding NAME --class ClassName")
+    const binding = flagString(args.flags, "binding") ?? className
+    return addDurableObject(json, { binding, className })
+  }
+  if (kind === "workflow") {
+    if (!className) fail("Usage: cfnext add workflow --name name --binding NAME --class ClassName")
+    const name = flagString(args.flags, "name") ?? kebabFromClass(className)
+    const binding = flagString(args.flags, "binding") ?? screamingName(name)
+    const expr = flagString(args.flags, "expr")
+    return addWorkflow(json, {
+      name,
+      binding,
+      className,
+      ...(expr ? { schedules: expr } : {}),
+    })
+  }
+  if (kind === "cron") {
+    const expr = flagString(args.flags, "expr")
+    if (!expr) fail("Usage: cfnext add cron --expr \"0 * * * *\"")
+    return addCron(json, expr)
+  }
+  if (kind === "secret-store") {
+    const binding = flagString(args.flags, "binding")
+    const storeId = flagString(args.flags, "store-id")
+    const secretName = flagString(args.flags, "secret-name")
+    if (!binding || !storeId || !secretName) {
+      fail("Usage: cfnext add secret-store --binding NAME --store-id id --secret-name name")
+    }
+    return addSecretStore(json, { binding, storeId, secretName })
+  }
+  if (kind === "secret") {
+    const name = flagString(args.flags, "name") ?? flagString(args.flags, "binding") ?? args.positionals[1]
+    if (!name) fail("Usage: cfnext add secret --name SECRET_NAME")
+    return addRequiredSecret(json, name)
+  }
+  if (kind === "var") {
+    const name = flagString(args.flags, "name") ?? args.positionals[1]
+    const value = flagString(args.flags, "value")
+    if (!name || value === undefined) fail("Usage: cfnext add var --name NAME --value value")
+    return addVar(json, name, value)
+  }
+  return json
+}
+
+async function writeP1Stubs(root: string, kind: string, args: Args): Promise<void> {
+  const className = flagString(args.flags, "class")
+  const rename = flagString(args.flags, "rename")
+  if (kind === "do" && rename) {
+    const to = rename.split(":")[1]
+    if (to) await writeStubIfMissing(root, `durable-objects/${to}.ts`, durableObjectStub(to))
+    return
+  }
+  if (kind === "do" && className && !flagBool(args.flags, "delete")) {
+    await writeStubIfMissing(root, `durable-objects/${className}.ts`, durableObjectStub(className))
+  }
+  if (kind === "workflow" && className) {
+    await writeStubIfMissing(root, `workflows/${className}.ts`, workflowStub(className))
+  }
+  if (kind === "cron") {
+    await writeStubIfMissing(root, "scheduled.ts", scheduledStub())
+  }
+  if (kind === "queue" && flagBool(args.flags, "consume")) {
+    await writeStubIfMissing(root, "queue.ts", queueStub())
+  }
+}
+
 export async function addCommand(args: Args): Promise<void> {
   const kind = args.positionals[0]
   const catalog = kind ? catalogKind(kind) : undefined
   if (!kind || !catalog) {
     fail(`Usage: cfnext add ${implementedAddKinds().join("|")}`)
   }
-  if (!catalog.emitImplemented || !BINDING_KINDS.includes(catalog.kind as BindingKind)) {
-    fail(
-      catalog.emitImplemented
-        ? `Unknown binding ${kind}`
-        : `${kind} is not implemented in this version (${catalog.phase}).`,
-    )
+  if (!catalog.emitImplemented) {
+    fail(`${kind} is not implemented in this version (${catalog.phase}).`)
   }
 
   const root = findProjectRoot()
+  const isLegacyBinding = BINDING_KINDS.includes(catalog.kind as BindingKind)
   const bindingKind = catalog.kind as BindingKind
   const appName = inferName(root)
   const existingJsonPath = findCfnextJson(root)
@@ -200,11 +298,8 @@ export async function addCommand(args: Args): Promise<void> {
   const explicitId = flagString(args.flags, "id")
   const consume = flagBool(args.flags, "consume")
 
-  if (bindingKind === "hyperdrive" && !explicitId && !flagBool(args.flags, "provision")) {
+  if (isLegacyBinding && bindingKind === "hyperdrive" && !explicitId && !flagBool(args.flags, "provision")) {
     fail("hyperdrive requires --id or --provision (wrangler id is required).")
-  }
-  if (consume && bindingKind === "queue") {
-    fail("queue --consume is not implemented in this version (P1).")
   }
 
   const jsonPath = findCfnextJson(root)
@@ -212,11 +307,11 @@ export async function addCommand(args: Args): Promise<void> {
   const wranglerText = existsSync(wranglerFile) ? await readFile(wranglerFile, "utf8") : ""
   const wranglerGenerated = wranglerText ? splitGenerated(wranglerText).generated : false
 
-  if (jsonPath && wranglerText && !wranglerGenerated) {
+  if (wranglerText && !wranglerGenerated && (jsonPath || !isLegacyBinding)) {
     fail("wrangler.jsonc is not @generated. Run `cfnext migrate wrangler` first.")
   }
 
-  if (!jsonPath && !wranglerGenerated) {
+  if (!jsonPath && !wranglerGenerated && isLegacyBinding) {
     console.warn("cfnext add: no cfnext.json; writing wrangler.jsonc directly (deprecated). Run `cfnext migrate wrangler`.")
     const config = await loadConfig(root)
     await ensureWrangler(root, config)
@@ -253,6 +348,24 @@ export async function addCommand(args: Args): Promise<void> {
   json.$schema ??= "./node_modules/cfnext/schema/cfnext.schema.json"
   json.name ??= inferName(root)
 
+  if (P1_KINDS.has(catalog.kind)) {
+    try {
+      json = mutateP1(json, catalog.kind, args)
+    } catch (error) {
+      if (error instanceof MigrationError || error instanceof Error) fail(error.message)
+      throw error
+    }
+    await writeP1Stubs(root, catalog.kind, args)
+    await writeFile(dest, stringifyJsonc(json))
+    console.log(`added ${kind} → ${dest}`)
+    try {
+      await generate(root)
+    } catch (error) {
+      failIfGenerate(error)
+    }
+    return
+  }
+
   const extras = {
     previewId: environment === "preview" || previewId ? previewId : undefined,
     id: explicitId,
@@ -272,6 +385,7 @@ export async function addCommand(args: Args): Promise<void> {
   }
 
   if (bindingKind === "d1") await ensureD1Migrations(root)
+  if (catalog.kind === "queue" && consume) await writeP1Stubs(root, "queue", args)
 
   const hasComments = /\/\//.test(raw) || /\/\*/.test(raw)
   await writeFile(dest, stringifyJsonc(json))

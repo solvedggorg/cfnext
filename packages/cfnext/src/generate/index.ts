@@ -5,10 +5,12 @@ import { join } from "node:path"
 import { findCfnextJson, loadProject, type LoadedProject } from "../config"
 import { CFNEXT_VERSION } from "../constants"
 import { stringifyJsonc } from "../jsonc"
+import { seedContainerMigration } from "../migrations"
 import { ensureWrangler, wranglerPath } from "../wrangler"
 import { GenerateError } from "./errors"
 import { isDirtyGenerated, splitGenerated, stampGenerated } from "./hash"
 import { writeRuntimeConfig } from "./runtime-config"
+import { writeGeneratedWorker } from "./worker"
 import { compileWrangler } from "./wrangler"
 
 export type GenerateOptions = {
@@ -60,7 +62,15 @@ export async function generate(projectDir: string, opts: GenerateOptions = {}): 
   const project = await loadProject(projectDir)
   if (!project.json) throw new GenerateError("cfnext.json could not be parsed")
 
-  const wrangler = compileWrangler(project.config, project.json)
+  let json = seedContainerMigration({
+    ...project.json,
+    target: project.json.target ?? project.config.target,
+  })
+  if (project.jsonPath && JSON.stringify(json) !== JSON.stringify(project.json)) {
+    await writeFile(project.jsonPath, stringifyJsonc(json))
+  }
+
+  const wrangler = compileWrangler(project.config, json)
   const body = stringifyJsonc(wrangler)
   const nextText = stampGenerated(body, CFNEXT_VERSION, project.jsonPath ? project.jsonPath.split(/[\\/]/).pop() : "cfnext.json")
 
@@ -68,14 +78,17 @@ export async function generate(projectDir: string, opts: GenerateOptions = {}): 
     if (wranglerText !== nextText) {
       throw new GenerateError("wrangler.jsonc is out of date. Run `cfnext generate`.")
     }
+    await writeGeneratedWorker(projectDir, json, { check: true })
     return { skipped: false, wranglerText: nextText }
   }
 
   if (opts.dryRun) {
+    await writeGeneratedWorker(projectDir, json, { dryRun: true })
     return { skipped: false, wranglerText: nextText }
   }
 
   await mkdir(join(projectDir, ".cloudflare/assets"), { recursive: true })
+  await writeGeneratedWorker(projectDir, json)
   await writeFile(wranglerFile, nextText)
   await writeRuntimeConfig(
     projectDir,

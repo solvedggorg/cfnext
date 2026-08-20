@@ -39,6 +39,12 @@
       "import": "./dist/worker/ssr.js",
       "default": "./dist/worker/ssr.js"
     },
+    "./worker/compose": {
+      "types": "./dist/worker/compose.d.ts",
+      "bun": "./src/worker/compose.ts",
+      "import": "./dist/worker/compose.js",
+      "default": "./dist/worker/compose.js"
+    },
     "./server": {
       "types": "./dist/ssr/context.d.ts",
       "bun": "./src/ssr/context.ts",

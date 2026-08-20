@@ -2,6 +2,7 @@ export const HELP = `cfnext — Next.js adapter + CLI for Cloudflare Workers and
 
   cfnext init [dir]       scaffold a Next.js app preconfigured for Cloudflare
   cfnext add <binding>    add a catalog binding to cfnext.json
+  cfnext rm do --class X  remove a Durable Object (keeps migration history)
   cfnext generate         compile cfnext.json → wrangler.jsonc + types module
   cfnext migrate wrangler import wrangler.jsonc into cfnext.json ( --force overwrites )
   cfnext build            next build (adapter packs .cloudflare/assets)
@@ -22,11 +23,16 @@ init
 
 add
   cfnext add d1|r2|kv|hyperdrive|ai|vectorize|queue
+           do|workflow|cron|secret|secret-store|var
   --binding DB                 binding name
   --name my-db                 resource name
+  --class RateLimiter          Durable Object / workflow class
+  --expr "0 * * * *"           cron expression
+  --consume                    queue consumer + queue.ts stub
   --provision                  run the matching wrangler create command
   --environment staging        write into env.staging (not preview/production)
   --preview-id <id>            local/miniflare preview resource id
+  --delete / --rename Old:New  Durable Objects only
 
 generate
   --check                      exit 1 if wrangler.jsonc is stale

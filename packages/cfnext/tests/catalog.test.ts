@@ -25,9 +25,24 @@ test("every non-virtual wranglerKey exists on vendored wrangler schema", () => {
   expect(missing).toEqual([])
 })
 
-test("P0 emitImplemented is true only for the seven binding kinds", () => {
+test("P1 emitImplemented includes P0 bindings plus storage/compute kinds", () => {
   const implemented = CATALOG.filter((k) => k.emitImplemented).map((k) => k.kind).sort()
-  expect(implemented).toEqual(["ai", "d1", "hyperdrive", "kv", "queue", "r2", "vectorize"])
+  expect(implemented).toEqual([
+    "ai",
+    "cron",
+    "d1",
+    "do",
+    "hyperdrive",
+    "kv",
+    "queue",
+    "r2",
+    "secret",
+    "secret-store",
+    "var",
+    "vectorize",
+    "version-metadata",
+    "workflow",
+  ])
 })
 
 test("Example A present paths include unimplemented catalog kinds", () => {
@@ -38,15 +53,11 @@ test("Example A present paths include unimplemented catalog kinds", () => {
     "media.images.binding",
     "media.images.loader",
     "observability",
-    "secrets.required",
-    "vars",
   ])
 })
 
-test("P0_BINDING_KINDS matches catalog emitImplemented kinds", () => {
-  const implemented = CATALOG.filter((kind) => kind.emitImplemented).map((kind) => kind.kind)
-  expect([...P0_BINDING_KINDS].sort() as string[]).toEqual(implemented.sort())
-  expect([...BINDING_KINDS].sort() as string[]).toEqual([...P0_BINDING_KINDS].sort())
+test("P0_BINDING_KINDS matches legacy BINDING_KINDS", () => {
+  expect([...P0_BINDING_KINDS].sort() as string[]).toEqual([...BINDING_KINDS].sort())
 })
 
 test("CFNEXT_VERSION matches package.json", () => {

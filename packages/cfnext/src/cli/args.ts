@@ -17,6 +17,7 @@ const BOOLEAN_FLAGS = new Set([
   "check",
   "dry-run",
   "consume",
+  "delete",
 ])
 
 export function parseArgs(argv: string[]): Args {

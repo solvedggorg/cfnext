@@ -1,15 +1,18 @@
 import { CatalogError, emitImplementedBindings } from "../catalog"
 import { COMPATIBILITY_DATE } from "../constants"
 import type { CfnextConfig } from "../config"
+import { assertMigrationsMatchLive, MigrationError, seedContainerMigration } from "../migrations"
 import type { CfnextBindings, CfnextEnvOverlay, CfnextJson } from "../schema"
 import { buildWrangler, type WranglerConfig } from "../wrangler"
 import { GenerateError } from "./errors"
+import { GENERATED_WORKER } from "./worker"
 
 const FORBIDDEN_ENV = new Set(["preview", "production"])
 
 const NON_INHERITABLE = [
   "vars",
   "secrets",
+  "secrets_store_secrets",
   "d1_databases",
   "kv_namespaces",
   "r2_buckets",
@@ -17,6 +20,11 @@ const NON_INHERITABLE = [
   "vectorize",
   "queues",
   "ai",
+  "durable_objects",
+  "workflows",
+  "migrations",
+  "triggers",
+  "version_metadata",
 ] as const
 
 function mergeBindingArrays<T extends { binding: string; omit?: boolean }>(
@@ -82,10 +90,14 @@ export function compileWrangler(config: CfnextConfig, json: CfnextJson): Wrangle
   if (json.workersDev !== undefined) wrangler.workers_dev = json.workersDev
   if (json.previewUrls !== undefined) wrangler.preview_urls = json.previewUrls
 
+  const resolved = seedContainerMigration({ ...json, target: json.target ?? config.target })
   try {
-    emitImplementedBindings(json, wrangler, config.name)
+    assertMigrationsMatchLive(resolved)
+    emitImplementedBindings(resolved, wrangler, config.name)
   } catch (error) {
-    if (error instanceof CatalogError) throw new GenerateError(error.message)
+    if (error instanceof CatalogError || error instanceof MigrationError) {
+      throw new GenerateError(error.message)
+    }
     throw error
   }
 
@@ -104,6 +116,7 @@ export function compileWrangler(config: CfnextConfig, json: CfnextJson): Wrangle
   if (!wrangler.build?.command) {
     wrangler.build = { ...wrangler.build, command: "bun --bun next build" }
   }
+  wrangler.main = GENERATED_WORKER
   return wrangler
 }
 
@@ -112,7 +125,6 @@ const UNIMPLEMENTED_OVERLAY = [
   "workflows",
   "agents",
   "cron",
-  "secrets",
   "access",
   "observability",
   "logpush",
@@ -141,12 +153,19 @@ function compileEnvBlock(
     target: base.target,
     bindings: mergeBindings(base.bindings, overlay.bindings),
     ai: overlay.ai ?? base.ai,
+    vars: overlay.vars ?? base.vars,
+    secrets: overlay.secrets ?? base.secrets,
+    durableObjects: base.durableObjects,
+    workflows: base.workflows,
+    cron: base.cron,
   }
   const fragment = emptyWrangler(app)
   try {
     emitImplementedBindings(merged, fragment, app)
   } catch (error) {
-    if (error instanceof CatalogError) throw new GenerateError(error.message)
+    if (error instanceof CatalogError || error instanceof MigrationError) {
+      throw new GenerateError(error.message)
+    }
     throw error
   }
   const block = pickNonInheritable(fragment)
