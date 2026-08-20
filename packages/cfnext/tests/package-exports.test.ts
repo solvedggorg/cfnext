@@ -19,6 +19,7 @@ test("public exports declare types for next.config.ts-style imports", async () =
     "./analytics",
     "./email",
     "./image-loader",
+    "./stream",
   ]) {
     const entry = pkg.exports[key]
     expect(entry && typeof entry === "object").toBe(true)

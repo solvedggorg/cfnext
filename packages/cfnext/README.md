@@ -56,6 +56,12 @@ export default withCfnext({
 })
 ```
 
+```ts
+import { CfnextStream } from "cfnext/stream"
+
+<CfnextStream src={videoId} customerCode="igynxd2rwhmuoxw8" />
+```
+
 ## CLI
 
 | Command | What you get |

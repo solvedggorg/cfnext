@@ -93,6 +93,12 @@
       "import": "./dist/image-loader.js",
       "default": "./dist/image-loader.js"
     },
+    "./stream": {
+      "types": "./dist/media/stream.d.ts",
+      "bun": "./src/media/stream.ts",
+      "import": "./dist/media/stream.js",
+      "default": "./dist/media/stream.js"
+    },
     "./schema": {
       "default": "./schema/cfnext.schema.json"
     }
