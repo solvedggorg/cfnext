@@ -57,8 +57,8 @@ export const cf = {
     ),
   )
 
-  const tsc = join(pkgRoot, "../../node_modules/typescript/bin/tsc")
-  const proc = Bun.spawn([tsc, "--noEmit", "-p", join(dir, "tsconfig.json")], {
+  const tsc = join(pkgRoot, "node_modules/typescript/lib/tsc.js")
+  const proc = Bun.spawn(["bun", "--bun", tsc, "--noEmit", "-p", join(dir, "tsconfig.json")], {
     cwd: dir,
     stdout: "pipe",
     stderr: "pipe",
