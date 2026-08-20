@@ -1,6 +1,6 @@
 {
   "name": "cfnext",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "description": "Next.js adapter and CLI for Cloudflare Workers compute and Containers (D1, R2, KV, and more). Bun-first. No OpenNext.",
   "license": "MIT",
@@ -63,6 +63,24 @@
       "import": "./dist/protect-clerk.js",
       "default": "./dist/protect-clerk.js"
     },
+    "./access": {
+      "types": "./dist/server/access.d.ts",
+      "bun": "./src/server/access.ts",
+      "import": "./dist/server/access.js",
+      "default": "./dist/server/access.js"
+    },
+    "./flags": {
+      "types": "./dist/server/flags.d.ts",
+      "bun": "./src/server/flags.ts",
+      "import": "./dist/server/flags.js",
+      "default": "./dist/server/flags.js"
+    },
+    "./analytics": {
+      "types": "./dist/analytics/web.d.ts",
+      "bun": "./src/analytics/web.ts",
+      "import": "./dist/analytics/web.js",
+      "default": "./dist/analytics/web.js"
+    },
     "./schema": {
       "default": "./schema/cfnext.schema.json"
     }
@@ -88,10 +106,18 @@
     "next": ">=16.2.0",
     "react": ">=19.0.0",
     "react-dom": ">=19.0.0",
-    "wrangler": ">=4.0.0"
+    "wrangler": ">=4.0.0",
+    "@cloudflare/flagship": ">=0.1.0",
+    "@openfeature/server-sdk": ">=1.0.0"
   },
   "peerDependenciesMeta": {
     "@cloudflare/containers": {
+      "optional": true
+    },
+    "@cloudflare/flagship": {
+      "optional": true
+    },
+    "@openfeature/server-sdk": {
       "optional": true
     },
     "next": {

@@ -24,6 +24,7 @@ init
 add
   cfnext add d1|r2|kv|hyperdrive|ai|vectorize|queue
            do|workflow|cron|secret|secret-store|var
+           access|flagship|logpush|web-analytics
   --binding DB                 binding name
   --name my-db                 resource name
   --class RateLimiter          Durable Object / workflow class
@@ -32,7 +33,12 @@ add
   --store-id / --secret-name   Secrets Store
   --value                      var value
   --no-sqlite                  Durable Object uses new_classes (not SQLite)
-  --provision                  run the matching wrangler create command
+  --app-id                     Flagship app id
+  --token                      Web Analytics site token
+  --dataset / --destination    Logpush job (L4 plan; wrangler is boolean)
+  --protect-production         Access on production workers.dev
+  --emails / --domains         Access include rules
+  --provision                  run the matching wrangler/API create command
   --environment staging        write into env.staging (not preview/production)
   --preview-id <id>            local/miniflare preview resource id
   --delete / --rename Old:New  Durable Objects only

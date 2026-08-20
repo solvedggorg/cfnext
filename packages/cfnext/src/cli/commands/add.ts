@@ -2,10 +2,17 @@ import { existsSync } from "node:fs"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 
+import {
+  AccessProvisionError,
+  buildAccessPlan,
+  provisionAccess,
+  resolveCloudflareAuth,
+} from "../../access-provision"
 import { BINDING_KINDS, applyBinding, type BindingKind } from "../../bindings"
 import { catalogKind, implementedAddKinds } from "../../catalog"
 import { findCfnextJson, inferName, loadConfig } from "../../config"
 import { generate, splitGenerated } from "../../generate"
+import { writePlanFiles } from "../../generate/plans"
 import { parseJsonc, stringifyJsonc } from "../../jsonc"
 import { MigrationError } from "../../migrations"
 import type { CfnextBindings, CfnextJson } from "../../schema"
@@ -25,6 +32,7 @@ import {
   renameDurableObject,
   screamingName,
 } from "../p1-mutate"
+import { addAccess, addFlagship, addLogpush, addWebAnalytics } from "../p2-mutate"
 import { ensureDevDependency, WORKERS_TYPES_SPEC } from "../package-json"
 import { fail, run } from "../run"
 import {
@@ -193,6 +201,76 @@ function provisionEntry(kind: BindingKind, resourceName: string) {
 }
 
 const P1_KINDS = new Set(["do", "workflow", "cron", "secret", "secret-store", "var"])
+const P2_KINDS = new Set(["access", "flagship", "logpush", "web-analytics"])
+
+function csv(value: string | undefined): string[] | undefined {
+  if (!value) return undefined
+  const items = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+  return items.length > 0 ? items : undefined
+}
+
+function mutateP2(json: CfnextJson, kind: string, args: Args): CfnextJson {
+  if (kind === "access") {
+    return addAccess(json, {
+      ...(flagBool(args.flags, "protect-production") ? { protectProduction: true } : {}),
+      allowedEmails: csv(flagString(args.flags, "emails") ?? flagString(args.flags, "email")),
+      allowedDomains: csv(flagString(args.flags, "domains") ?? flagString(args.flags, "domain")),
+    })
+  }
+  if (kind === "flagship") {
+    const appId = flagString(args.flags, "app-id")
+    if (!appId) fail("Usage: cfnext add flagship --app-id <id> [--binding FLAGS]")
+    const binding = flagString(args.flags, "binding") ?? "FLAGS"
+    return addFlagship(json, {
+      binding,
+      appId,
+      ...(flagBool(args.flags, "remote") ? { remote: true } : {}),
+    })
+  }
+  if (kind === "logpush") {
+    const dataset = flagString(args.flags, "dataset")
+    const destination = flagString(args.flags, "destination")
+    const name = flagString(args.flags, "name")
+    return addLogpush(
+      json,
+      dataset ? { dataset, ...(destination ? { destination } : {}), ...(name ? { name } : {}) } : undefined,
+    )
+  }
+  if (kind === "web-analytics") {
+    const token = flagString(args.flags, "token")
+    if (!token) fail("Usage: cfnext add web-analytics --token <site-token>")
+    const spaFlag = flagString(args.flags, "spa")
+    return addWebAnalytics(json, { token, spa: spaFlag === "false" ? false : true })
+  }
+  return json
+}
+
+async function provisionAccessOrExit(root: string, dest: string, json: CfnextJson): Promise<CfnextJson> {
+  const auth = resolveCloudflareAuth(process.env)
+  if (!auth) {
+    const plan = buildAccessPlan(json)
+    console.log(plan.dashboard)
+    for (const warning of plan.warnings) console.warn(warning)
+    console.log("Access provision requires CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (or Wrangler credentials).")
+    console.log(`Wrote plan ${join(root, ".cloudflare/generated/access.plan.json")}`)
+    fail("Access API not called. Follow the dashboard steps in the plan file.", 2)
+  }
+  try {
+    const result = await provisionAccess(json, auth, { fetch: globalThis.fetch })
+    for (const warning of result.warnings) console.warn(warning)
+    await writeFile(dest, stringifyJsonc(result.json))
+    await writePlanFiles(root, result.json)
+    console.log(`provisioned Access for ${result.json.name ?? "worker"}`)
+    if (result.json.access?.aud) console.log(`wrote aud ${result.json.access.aud} into cfnext.json`)
+    return result.json
+  } catch (error) {
+    if (error instanceof AccessProvisionError) fail(error.message, error.exitCode)
+    throw error
+  }
+}
 
 function mutateP1(json: CfnextJson, kind: string, args: Args): CfnextJson {
   const className = flagString(args.flags, "class")
@@ -372,6 +450,32 @@ export async function addCommand(args: Args): Promise<void> {
       await generate(root)
     } catch (error) {
       failIfGenerate(error)
+    }
+    return
+  }
+
+  if (P2_KINDS.has(catalog.kind)) {
+    const before = JSON.stringify(json)
+    json = mutateP2(json, catalog.kind, args)
+    const unchanged = JSON.stringify(json) === before
+    await writeFile(dest, stringifyJsonc(json))
+    console.log(unchanged ? `${kind} already present → ${dest}` : `added ${kind} → ${dest}`)
+    if (catalog.kind === "access") {
+      for (const warning of buildAccessPlan(json).warnings) console.warn(warning)
+      console.log(buildAccessPlan(json).dashboard)
+    }
+    try {
+      await generate(root)
+    } catch (error) {
+      failIfGenerate(error)
+    }
+    if (catalog.kind === "access" && flagBool(args.flags, "provision")) {
+      json = await provisionAccessOrExit(root, dest, json)
+      try {
+        await generate(root)
+      } catch (error) {
+        failIfGenerate(error)
+      }
     }
     return
   }

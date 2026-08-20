@@ -1,4 +1,4 @@
-import { CatalogError, emitImplementedBindings } from "../catalog"
+import { CatalogError, emitImplementedBindings, ensureP2ObservabilityDefaults } from "../catalog"
 import { COMPATIBILITY_DATE } from "../constants"
 import type { CfnextConfig } from "../config"
 import { assertMigrationsMatchLive, MigrationError, seedContainerMigration } from "../migrations"
@@ -25,6 +25,7 @@ const NON_INHERITABLE = [
   "migrations",
   "triggers",
   "version_metadata",
+  "flagship",
 ] as const
 
 function mergeBindingArrays<T extends { binding: string; omit?: boolean }>(
@@ -101,6 +102,8 @@ export function compileWrangler(config: CfnextConfig, json: CfnextJson): Wrangle
     throw error
   }
 
+  ensureP2ObservabilityDefaults(wrangler)
+
   if (json.passthrough) {
     Object.assign(wrangler, json.passthrough)
   }
@@ -125,13 +128,9 @@ const UNIMPLEMENTED_OVERLAY = [
   "workflows",
   "agents",
   "cron",
-  "access",
-  "observability",
-  "logpush",
   "analytics",
   "email",
   "media",
-  "flagship",
 ] as const
 
 function compileEnvBlock(
@@ -142,6 +141,11 @@ function compileEnvBlock(
 ): Partial<WranglerConfig> {
   if ("name" in overlay || "target" in overlay) {
     throw new GenerateError("env overlays must not set name or target")
+  }
+  if (overlay.access !== undefined) {
+    throw new GenerateError(
+      `env.${envName}.access is not supported. Access is configured at the top level.`,
+    )
   }
   for (const key of UNIMPLEMENTED_OVERLAY) {
     if (overlay[key] !== undefined) {
@@ -158,6 +162,9 @@ function compileEnvBlock(
     durableObjects: base.durableObjects,
     workflows: base.workflows,
     cron: base.cron,
+    flagship: overlay.flagship ?? base.flagship,
+    observability: overlay.observability,
+    logpush: overlay.logpush,
   }
   const fragment = emptyWrangler(app)
   try {
@@ -169,6 +176,8 @@ function compileEnvBlock(
     throw error
   }
   const block = pickNonInheritable(fragment)
+  if (overlay.observability) block.observability = fragment.observability
+  if (overlay.logpush) block.logpush = fragment.logpush
   if (overlay.vars) block.vars = overlay.vars
   if (overlay.compatibilityDate) block.compatibility_date = overlay.compatibilityDate
   if (overlay.compatibilityFlags) block.compatibility_flags = overlay.compatibilityFlags

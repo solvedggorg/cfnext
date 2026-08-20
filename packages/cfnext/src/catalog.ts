@@ -1,5 +1,9 @@
 import type {
+  CfnextAccess,
+  CfnextFlagship,
   CfnextJson,
+  CfnextLogpush,
+  CfnextObservability,
   D1Binding,
   HyperdriveBinding,
   KvBinding,
@@ -243,6 +247,79 @@ function emitSecrets(json: CfnextJson, wrangler: WranglerConfig): void {
 function emitVars(json: CfnextJson, wrangler: WranglerConfig): void {
   if (!json.vars || Object.keys(json.vars).length === 0) return
   wrangler.vars = { ...wrangler.vars, ...json.vars }
+}
+
+function emitAccess(json: CfnextJson, wrangler: WranglerConfig): void {
+  if (!json.access) return
+  const access: CfnextAccess = json.access
+  const aud = access.dev?.aud ?? access.aud ?? json.name ?? "cfnext-dev"
+  wrangler.access = {
+    dev: {
+      aud,
+      ...(access.dev?.identity ? { identity: access.dev.identity } : {}),
+    },
+  }
+}
+
+function flagshipEntries(flagship: CfnextFlagship | undefined): Array<{
+  binding: string
+  appId?: string
+  remote?: boolean
+}> {
+  if (!flagship) return []
+  return Array.isArray(flagship) ? flagship : [flagship]
+}
+
+function emitFlagship(json: CfnextJson, wrangler: WranglerConfig): void {
+  const rows = [...(wrangler.flagship ?? [])]
+  for (const item of flagshipEntries(json.flagship)) {
+    if (rows.some((row) => row.binding === item.binding)) continue
+    rows.push({
+      binding: item.binding,
+      ...(item.appId ? { app_id: item.appId } : {}),
+      ...(item.remote ? { remote: true } : {}),
+    })
+  }
+  if (rows.length > 0) wrangler.flagship = rows
+}
+
+function emitObservability(json: CfnextJson, wrangler: WranglerConfig): void {
+  const obs: CfnextObservability | undefined = json.observability
+  if (!obs) return
+  const out: NonNullable<WranglerConfig["observability"]> = {
+    enabled: obs.enabled ?? true,
+  }
+  if (obs.headSamplingRate != null) out.head_sampling_rate = obs.headSamplingRate
+  if (obs.logs) {
+    out.logs = {}
+    if (obs.logs.enabled != null) out.logs.enabled = obs.logs.enabled
+    if (obs.logs.headSamplingRate != null) out.logs.head_sampling_rate = obs.logs.headSamplingRate
+    if (obs.logs.invocationLogs != null) out.logs.invocation_logs = obs.logs.invocationLogs
+    if (obs.logs.persist != null) out.logs.persist = obs.logs.persist
+    if (obs.logs.destinations) out.logs.destinations = obs.logs.destinations
+  }
+  if (obs.traces) {
+    out.traces = {}
+    if (obs.traces.enabled != null) out.traces.enabled = obs.traces.enabled
+    if (obs.traces.headSamplingRate != null) out.traces.head_sampling_rate = obs.traces.headSamplingRate
+    if (obs.traces.persist != null) out.traces.persist = obs.traces.persist
+    if (obs.traces.destinations) out.traces.destinations = obs.traces.destinations
+  }
+  wrangler.observability = out
+}
+
+export function ensureP2ObservabilityDefaults(wrangler: WranglerConfig): void {
+  const obs = wrangler.observability ?? { enabled: true, head_sampling_rate: 1 }
+  if (obs.enabled !== false && obs.traces === undefined) {
+    obs.traces = { enabled: true }
+  }
+  wrangler.observability = obs
+}
+
+function emitLogpush(json: CfnextJson, wrangler: WranglerConfig): void {
+  const logpush: CfnextLogpush | undefined = json.logpush
+  if (!logpush) return
+  if (logpush.enabled != null) wrangler.logpush = logpush.enabled
 }
 
 function emitVersionMetadata(json: CfnextJson, wrangler: WranglerConfig): void {
@@ -491,7 +568,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "access",
     jsonPath: "access",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 3,
     phase: "P2",
     wranglerAllowlist: ["dev"],
@@ -502,7 +579,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "flagship",
     jsonPath: "flagship",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 3,
     phase: "P2",
     wranglerAllowlist: ["binding", "app_id", "remote"],
@@ -513,7 +590,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "observability",
     jsonPath: "observability",
     add: false,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 3,
     phase: "P2",
     wranglerAllowlist: ["enabled", "head_sampling_rate", "logs", "traces"],
@@ -524,7 +601,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "logpush",
     jsonPath: "logpush",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 4,
     phase: "P2",
     wranglerAllowlist: [],
@@ -534,7 +611,7 @@ export const CATALOG: CatalogKind[] = [
     kind: "web-analytics",
     jsonPath: "analytics.web",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     virtual: true,
     level: 3,
     phase: "P2",
@@ -806,6 +883,10 @@ export function emitImplementedBindings(json: CfnextJson, wrangler: WranglerConf
   emitVars(json, wrangler)
   emitVersionMetadata(json, wrangler)
   emitMigrations(json, wrangler)
+  emitAccess(json, wrangler)
+  emitFlagship(json, wrangler)
+  emitObservability(json, wrangler)
+  emitLogpush(json, wrangler)
 }
 
 export const P0_BINDING_KINDS = ["d1", "r2", "kv", "hyperdrive", "ai", "vectorize", "queue"] as const

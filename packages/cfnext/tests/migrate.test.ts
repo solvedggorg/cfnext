@@ -80,7 +80,7 @@ test("wranglerToCfnextJson maps P0 bindings", () => {
   expect(json.bindings?.d1?.[0]?.id).toBe("11111111-1111-1111-1111-111111111111")
 })
 
-test("wranglerToCfnextJson maps env.staging and preserves observability in passthrough", () => {
+test("wranglerToCfnextJson maps env.staging and observability", () => {
   const json = wranglerToCfnextJson(
     {
       name: "demo",
@@ -98,7 +98,8 @@ test("wranglerToCfnextJson maps env.staging and preserves observability in passt
   )
   expect(json.env?.staging?.vars).toEqual({ APP_ENV: "staging" })
   expect(json.env?.staging?.bindings?.d1?.[0]?.id).toBe("22222222-2222-2222-2222-222222222222")
-  expect(json.passthrough?.observability).toEqual({ enabled: true, head_sampling_rate: 0.5 })
+  expect(json.observability).toEqual({ enabled: true, headSamplingRate: 0.5 })
+  expect(json.passthrough?.observability).toBeUndefined()
 })
 
 test("cfnext migrate wrangler writes json and regenerates wrangler", async () => {

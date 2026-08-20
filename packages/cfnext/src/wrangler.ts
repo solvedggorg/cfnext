@@ -16,7 +16,26 @@ export type WranglerConfig = {
   preview_urls?: boolean
   workers_dev?: boolean
   build?: { command: string }
-  observability?: { enabled: boolean; head_sampling_rate?: number }
+  observability?: {
+    enabled: boolean
+    head_sampling_rate?: number
+    logs?: {
+      enabled?: boolean
+      head_sampling_rate?: number
+      invocation_logs?: boolean
+      persist?: boolean
+      destinations?: string[]
+    }
+    traces?: {
+      enabled?: boolean
+      head_sampling_rate?: number
+      persist?: boolean
+      destinations?: string[]
+    }
+  }
+  access?: { dev?: { aud: string; identity?: Record<string, unknown> } }
+  logpush?: boolean
+  flagship?: Array<{ binding: string; app_id?: string; remote?: boolean }>
   assets?: {
     directory: string
     binding: string

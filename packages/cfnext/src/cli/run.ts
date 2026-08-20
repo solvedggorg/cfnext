@@ -1,6 +1,6 @@
-export function fail(message: string): never {
+export function fail(message: string, code = 1): never {
   console.error(message)
-  process.exit(1)
+  process.exit(code)
 }
 
 export async function run(

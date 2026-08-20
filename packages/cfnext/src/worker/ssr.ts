@@ -2,7 +2,7 @@ import type { CfnextConfig, CfnextUserConfig } from "../config"
 import { defaultConfig, normalizeConfig } from "../config"
 import { protectDecision } from "../protect"
 import { withSecurity } from "../security"
-import { runWithCloudflareContext } from "../ssr/context"
+import { runWithCloudflareContext, type CloudflareExecutionContext } from "../ssr/context"
 import { matchRoute, type SsrHandlerRecord } from "../ssr/match"
 import { invokeNodeHandler, type NodeHandler } from "../ssr/node-http"
 import type { EdgeHandler, SsrLoader } from "../ssr/types"
@@ -13,9 +13,7 @@ export type { SsrLoader } from "../ssr/types"
 
 export type SsrEnv = AssetsEnv & Record<string, unknown>
 
-export type SsrExecutionContext = {
-  waitUntil: (promise: Promise<unknown>) => void
-}
+export type SsrExecutionContext = CloudflareExecutionContext
 
 export type SsrWorkerOptions = {
   config?: CfnextUserConfig | CfnextConfig

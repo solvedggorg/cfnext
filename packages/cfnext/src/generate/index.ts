@@ -10,6 +10,7 @@ import { ensureWrangler, wranglerPath } from "../wrangler"
 import { GenerateError } from "./errors"
 import { isDirtyGenerated, splitGenerated, stampGenerated } from "./hash"
 import { writeRuntimeConfig } from "./runtime-config"
+import { writePlanFiles } from "./plans"
 import { writeGeneratedWorker } from "./worker"
 import { compileWrangler } from "./wrangler"
 
@@ -95,6 +96,7 @@ export async function generate(projectDir: string, opts: GenerateOptions = {}): 
     project.config,
     project.hooksHasClerkShells ? { shells: "clerkShells" } : null,
   )
+  await writePlanFiles(projectDir, json)
   return { skipped: false, wranglerText: nextText }
 }
 

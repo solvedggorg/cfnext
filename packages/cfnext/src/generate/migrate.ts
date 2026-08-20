@@ -5,7 +5,13 @@ import { join } from "node:path"
 import { inferName } from "../config"
 import { parseJsonc, stringifyJsonc } from "../jsonc"
 import { importWranglerMigrations } from "../migrations"
-import type { CfnextBindings, CfnextEnvOverlay, CfnextJson } from "../schema"
+import type {
+  CfnextBindings,
+  CfnextEnvOverlay,
+  CfnextFlagship,
+  CfnextJson,
+  CfnextObservability,
+} from "../schema"
 import { wranglerPath, type WranglerConfig } from "../wrangler"
 import { GenerateError } from "./errors"
 import { generate } from "./index"
@@ -40,6 +46,10 @@ const MAPPED_KEYS = new Set([
   "workflows",
   "triggers",
   "version_metadata",
+  "access",
+  "observability",
+  "logpush",
+  "flagship",
 ])
 
 function str(value: unknown): string | undefined {
@@ -145,6 +155,46 @@ function mapP1Fields(wrangler: WranglerConfig | Partial<WranglerConfig>, json: C
   }
 }
 
+function mapObservability(
+  obs: NonNullable<WranglerConfig["observability"]>,
+): CfnextObservability {
+  const out: CfnextObservability = { enabled: obs.enabled }
+  if (obs.head_sampling_rate != null) out.headSamplingRate = obs.head_sampling_rate
+  if (obs.logs) {
+    out.logs = {
+      ...(obs.logs.enabled != null ? { enabled: obs.logs.enabled } : {}),
+      ...(obs.logs.head_sampling_rate != null ? { headSamplingRate: obs.logs.head_sampling_rate } : {}),
+      ...(obs.logs.invocation_logs != null ? { invocationLogs: obs.logs.invocation_logs } : {}),
+      ...(obs.logs.persist != null ? { persist: obs.logs.persist } : {}),
+      ...(obs.logs.destinations ? { destinations: obs.logs.destinations } : {}),
+    }
+  }
+  if (obs.traces) {
+    out.traces = {
+      ...(obs.traces.enabled != null ? { enabled: obs.traces.enabled } : {}),
+      ...(obs.traces.head_sampling_rate != null ? { headSamplingRate: obs.traces.head_sampling_rate } : {}),
+      ...(obs.traces.persist != null ? { persist: obs.traces.persist } : {}),
+      ...(obs.traces.destinations ? { destinations: obs.traces.destinations } : {}),
+    }
+  }
+  return out
+}
+
+function mapFlagship(rows: NonNullable<WranglerConfig["flagship"]>): CfnextFlagship {
+  const mapped = rows.map((row) => ({
+    binding: String(row.binding),
+    ...(row.app_id ? { appId: String(row.app_id) } : {}),
+    ...(row.remote ? { remote: true } : {}),
+  }))
+  return mapped.length === 1 ? mapped[0]! : mapped
+}
+
+function mapP2Fields(wrangler: WranglerConfig | Partial<WranglerConfig>, json: CfnextJson | CfnextEnvOverlay): void {
+  if (wrangler.observability) json.observability = mapObservability(wrangler.observability)
+  if (typeof wrangler.logpush === "boolean") json.logpush = { enabled: wrangler.logpush }
+  if (wrangler.flagship?.length) json.flagship = mapFlagship(wrangler.flagship)
+}
+
 function wranglerToOverlay(wrangler: Partial<WranglerConfig>): CfnextEnvOverlay {
   const overlay: CfnextEnvOverlay = {}
   if (wrangler.compatibility_date) overlay.compatibilityDate = wrangler.compatibility_date
@@ -156,6 +206,7 @@ function wranglerToOverlay(wrangler: Partial<WranglerConfig>): CfnextEnvOverlay 
   if (bindings) overlay.bindings = bindings
   if (wrangler.ai?.binding) overlay.ai = { binding: wrangler.ai.binding }
   mapP1Fields(wrangler, overlay)
+  mapP2Fields(wrangler, overlay)
   const passthrough: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(wrangler)) {
     if (COMPILER_OWNED.has(key) || MAPPED_KEYS.has(key) || key === "vars") continue
@@ -185,6 +236,10 @@ export function wranglerToCfnextJson(wrangler: WranglerConfig, fallbackName: str
   if (bindings) json.bindings = bindings
   if (wrangler.ai?.binding) json.ai = { binding: wrangler.ai.binding }
   mapP1Fields(wrangler, json)
+  mapP2Fields(wrangler, json)
+  if (wrangler.access?.dev) {
+    json.access = { ...json.access, dev: wrangler.access.dev }
+  }
   const migrations = importWranglerMigrations(wrangler.migrations)
   if (migrations) json.migrations = migrations
 
