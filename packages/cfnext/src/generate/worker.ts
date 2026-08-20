@@ -22,6 +22,9 @@ export * from "./handlers"
 
 function handlerExports(json: CfnextJson): string[] {
   const lines: string[] = []
+  if (json.email?.routing?.enabled) {
+    lines.push(`export { email } from "../../email"`)
+  }
   if (json.bindings?.queues?.some((item) => item.consume)) {
     lines.push(`export { queue } from "../../queue"`)
   }
@@ -61,6 +64,9 @@ function exportedNames(source: string): string[] {
 
 export function requiredStubs(json: CfnextJson): Array<{ path: string; hint: string }> {
   const stubs: Array<{ path: string; hint: string }> = []
+  if (json.email?.routing?.enabled) {
+    stubs.push({ path: "email.ts", hint: "cfnext add email --inbound" })
+  }
   if (json.bindings?.queues?.some((item) => item.consume)) {
     stubs.push({ path: "queue.ts", hint: "cfnext add queue --consume" })
   }
@@ -95,6 +101,7 @@ export async function assertNoExportCollision(projectDir: string, json: CfnextJs
   if (!existsSync(workerPath)) return
   const workerNames = exportedNames(await readFile(workerPath, "utf8"))
   const extraNames: string[] = []
+  if (json.email?.routing?.enabled) extraNames.push("email")
   if (json.bindings?.queues?.some((item) => item.consume)) extraNames.push("queue")
   if (json.cron?.length) extraNames.push("scheduled")
   for (const item of json.workflows ?? []) extraNames.push(item.className)

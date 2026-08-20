@@ -1,6 +1,6 @@
 {
   "name": "cfnext",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "description": "Next.js adapter and CLI for Cloudflare Workers compute and Containers (D1, R2, KV, and more). Bun-first. No OpenNext.",
   "license": "MIT",
@@ -80,6 +80,18 @@
       "bun": "./src/analytics/web.ts",
       "import": "./dist/analytics/web.js",
       "default": "./dist/analytics/web.js"
+    },
+    "./email": {
+      "types": "./dist/server/email.d.ts",
+      "bun": "./src/server/email.ts",
+      "import": "./dist/server/email.js",
+      "default": "./dist/server/email.js"
+    },
+    "./image-loader": {
+      "types": "./dist/image-loader.d.ts",
+      "bun": "./src/image-loader.ts",
+      "import": "./dist/image-loader.js",
+      "default": "./dist/image-loader.js"
     },
     "./schema": {
       "default": "./schema/cfnext.schema.json"

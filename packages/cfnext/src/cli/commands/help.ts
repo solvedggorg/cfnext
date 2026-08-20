@@ -25,15 +25,20 @@ add
   cfnext add d1|r2|kv|hyperdrive|ai|vectorize|queue
            do|workflow|cron|secret|secret-store|var
            access|flagship|logpush|web-analytics
+           email|images|image-loader|stream|media|realtime
   --binding DB                 binding name
   --name my-db                 resource name
   --class RateLimiter          Durable Object / workflow class
   --expr "0 * * * *"           cron expression or workflow schedule
   --consume                    queue consumer + queue.ts stub
+  --inbound                    email routing + email.ts stub
+  --kind cdn-cgi|imagedelivery image-loader URL builder
+  --zone-origin https://…      cdn-cgi zone origin
+  --account-hash <hash>        imagedelivery account hash
   --store-id / --secret-name   Secrets Store
   --value                      var value
   --no-sqlite                  Durable Object uses new_classes (not SQLite)
-  --app-id                     Flagship app id
+  --app-id                     Flagship / Realtime app id
   --token                      Web Analytics site token
   --dataset / --destination    Logpush job (L4 plan; wrangler is boolean)
   --protect-production         Access on production workers.dev

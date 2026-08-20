@@ -25,3 +25,9 @@ test("treats --help as a boolean even when a positional follows", () => {
   const args = parseArgs(["bun", "cfnext", "init", "--help"])
   expect(flagBool(args.flags, "help", "h")).toBe(true)
 })
+
+test("treats --inbound as a boolean", () => {
+  const args = parseArgs(["bun", "cfnext", "add", "email", "--inbound", "--addresses", "a@b.c"])
+  expect(flagBool(args.flags, "inbound")).toBe(true)
+  expect(flagString(args.flags, "addresses")).toBe("a@b.c")
+})

@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
-import { loadConfig } from "./config"
+import { loadConfig, loadProject, type LoadedProject } from "./config"
+import { IMAGE_LOADER_FILE } from "./generate/next"
 import { packBuild, type PackOutputs, type PackRouting } from "./pack"
 import { packSsrHandlers } from "./ssr/pack"
 
@@ -15,16 +16,31 @@ type NextConfigLike = Record<string, unknown> & {
   images?: Record<string, unknown>
 }
 
+export function nextImagesConfig(
+  current: Record<string, unknown> | undefined,
+  project: LoadedProject,
+): Record<string, unknown> {
+  const images: Record<string, unknown> = { ...current }
+  const loader = project.json?.media?.images?.loader
+  if (project.config.images.unoptimized) {
+    images.unoptimized = true
+    return images
+  }
+  if (loader?.enabled) {
+    images.loader = "custom"
+    images.loaderFile = IMAGE_LOADER_FILE
+    if (loader.remotePatterns?.length) images.remotePatterns = loader.remotePatterns
+  }
+  return images
+}
+
 const adapter = {
   name: "cfnext",
 
   async modifyConfig(config: NextConfigLike, ctx: { phase?: string }) {
     const projectDir = typeof process.cwd === "function" ? process.cwd() : "."
-    const cf = await loadConfig(projectDir)
-    const images = {
-      ...(config.images ?? {}),
-      ...(cf.images.unoptimized ? { unoptimized: true } : {}),
-    }
+    const project = await loadProject(projectDir)
+    const images = nextImagesConfig(config.images, project)
     if (ctx.phase === "phase-production-build") {
       return {
         ...config,

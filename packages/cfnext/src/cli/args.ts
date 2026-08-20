@@ -20,6 +20,7 @@ const BOOLEAN_FLAGS = new Set([
   "delete",
   "no-sqlite",
   "protect-production",
+  "inbound",
 ])
 
 export function parseArgs(argv: string[]): Args {

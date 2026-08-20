@@ -80,6 +80,27 @@ test("wranglerToCfnextJson maps P0 bindings", () => {
   expect(json.bindings?.d1?.[0]?.id).toBe("11111111-1111-1111-1111-111111111111")
 })
 
+test("wranglerToCfnextJson maps send_email, images, stream, and media", () => {
+  const json = wranglerToCfnextJson(
+    {
+      name: "demo",
+      main: "worker.ts",
+      compatibility_date: "2026-08-16",
+      send_email: [{ name: "EMAIL", allowed_sender_addresses: ["noreply@acme.com"] }],
+      images: { binding: "IMAGES" },
+      stream: { binding: "STREAM" },
+      media: { binding: "MEDIA", remote: true },
+    },
+    "demo",
+  )
+  expect(json.email?.sending).toEqual({ binding: "EMAIL", allowedSenders: ["noreply@acme.com"] })
+  expect(json.media?.images?.binding).toBe("IMAGES")
+  expect(json.media?.stream).toEqual({ binding: "STREAM" })
+  expect(json.media?.transforms).toEqual({ binding: "MEDIA", remote: true })
+  expect(json.passthrough?.send_email).toBeUndefined()
+  expect(json.passthrough?.images).toBeUndefined()
+})
+
 test("wranglerToCfnextJson maps env.staging and observability", () => {
   const json = wranglerToCfnextJson(
     {

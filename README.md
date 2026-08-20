@@ -27,7 +27,7 @@ Most “Next on Cloudflare” stacks wrap, fork, or emulate the framework. cfnex
 | A real Cloudflare deploy, not a Node host in disguise | Workers Assets for HTML and static files, Wrangler for the rest |
 | Server rendering when you need it | Worker-side `handler(req, res, ctx)` under `nodejs_compat` |
 | Full Node route handlers | Cloudflare Containers running `next start` |
-| D1, R2, KV, Hyperdrive, Workers AI, Vectorize, Queues, Durable Objects, Workflows, cron, secrets, vars | `cfnext add` writes the binding — `--provision` creates the resource |
+| D1, R2, KV, Hyperdrive, Workers AI, Vectorize, Queues, Durable Objects, Workflows, cron, secrets, vars, Email, Images, Stream | `cfnext add` writes the binding — `--provision` creates the resource |
 | Auth at the edge | Prefix protection and Clerk-style shells before the app runs |
 | An existing Next app | `cfnext init --existing` attaches instead of scaffolding |
 

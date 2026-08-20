@@ -36,6 +36,16 @@ export type WranglerConfig = {
   access?: { dev?: { aud: string; identity?: Record<string, unknown> } }
   logpush?: boolean
   flagship?: Array<{ binding: string; app_id?: string; remote?: boolean }>
+  send_email?: Array<{
+    name: string
+    destination_address?: string
+    allowed_destination_addresses?: string[]
+    allowed_sender_addresses?: string[]
+    remote?: boolean
+  }>
+  images?: { binding: string; remote?: boolean }
+  stream?: { binding: string; remote?: boolean }
+  media?: { binding: string; remote?: boolean }
   assets?: {
     directory: string
     binding: string

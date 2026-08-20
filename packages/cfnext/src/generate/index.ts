@@ -11,6 +11,7 @@ import { GenerateError } from "./errors"
 import { isDirtyGenerated, splitGenerated, stampGenerated } from "./hash"
 import { writeRuntimeConfig } from "./runtime-config"
 import { writePlanFiles } from "./plans"
+import { writeImageLoader } from "./next"
 import { writeGeneratedWorker } from "./worker"
 import { compileWrangler } from "./wrangler"
 
@@ -80,16 +81,19 @@ export async function generate(projectDir: string, opts: GenerateOptions = {}): 
       throw new GenerateError("wrangler.jsonc is out of date. Run `cfnext generate`.")
     }
     await writeGeneratedWorker(projectDir, json, { check: true })
+    await writeImageLoader(projectDir, json, { check: true })
     return { skipped: false, wranglerText: nextText }
   }
 
   if (opts.dryRun) {
     await writeGeneratedWorker(projectDir, json, { dryRun: true })
+    await writeImageLoader(projectDir, json, { dryRun: true })
     return { skipped: false, wranglerText: nextText }
   }
 
   await mkdir(join(projectDir, ".cloudflare/assets"), { recursive: true })
   await writeGeneratedWorker(projectDir, json)
+  await writeImageLoader(projectDir, json)
   await writeFile(wranglerFile, nextText)
   await writeRuntimeConfig(
     projectDir,

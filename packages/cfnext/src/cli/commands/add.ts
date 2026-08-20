@@ -33,10 +33,19 @@ import {
   screamingName,
 } from "../p1-mutate"
 import { addAccess, addFlagship, addLogpush, addWebAnalytics } from "../p2-mutate"
+import {
+  addEmail,
+  addImageLoader,
+  addImages,
+  addMediaTransforms,
+  addRealtime,
+  addStream,
+} from "../p3-mutate"
 import { ensureDevDependency, WORKERS_TYPES_SPEC } from "../package-json"
 import { fail, run } from "../run"
 import {
   durableObjectStub,
+  emailStub,
   queueStub,
   scheduledStub,
   workflowStub,
@@ -202,6 +211,7 @@ function provisionEntry(kind: BindingKind, resourceName: string) {
 
 const P1_KINDS = new Set(["do", "workflow", "cron", "secret", "secret-store", "var"])
 const P2_KINDS = new Set(["access", "flagship", "logpush", "web-analytics"])
+const P3_KINDS = new Set(["email", "images", "image-loader", "stream", "media", "realtime"])
 
 function csv(value: string | undefined): string[] | undefined {
   if (!value) return undefined
@@ -246,6 +256,70 @@ function mutateP2(json: CfnextJson, kind: string, args: Args): CfnextJson {
     return addWebAnalytics(json, { token, spa: spaFlag === "false" ? false : true })
   }
   return json
+}
+
+function mutateP3(json: CfnextJson, kind: string, args: Args): CfnextJson {
+  const binding = flagString(args.flags, "binding")
+  const remote = flagBool(args.flags, "remote")
+  if (kind === "email") {
+    return addEmail(json, {
+      binding: binding ?? "EMAIL",
+      destinationAddress: flagString(args.flags, "destination") ?? flagString(args.flags, "destination-address"),
+      allowedDestinations: csv(flagString(args.flags, "allowed-destinations")),
+      allowedSenders: csv(flagString(args.flags, "allowed-senders")),
+      remote,
+      inbound: flagBool(args.flags, "inbound"),
+      addresses: csv(flagString(args.flags, "addresses")),
+    })
+  }
+  if (kind === "images") {
+    return addImages(json, { binding: binding ?? "IMAGES", ...(remote ? { remote: true } : {}) })
+  }
+  if (kind === "image-loader") {
+    const kindFlag = (flagString(args.flags, "kind") ?? "cdn-cgi") as string
+    if (kindFlag !== "cdn-cgi" && kindFlag !== "imagedelivery") {
+      fail("Usage: cfnext add image-loader --kind cdn-cgi|imagedelivery")
+    }
+    const zoneOrigin = flagString(args.flags, "zone-origin")
+    const accountHash = flagString(args.flags, "account-hash")
+    if (kindFlag === "cdn-cgi" && !zoneOrigin) {
+      fail("Usage: cfnext add image-loader --kind cdn-cgi --zone-origin https://example.com")
+    }
+    if (kindFlag === "imagedelivery" && !accountHash) {
+      fail("Usage: cfnext add image-loader --kind imagedelivery --account-hash <hash>")
+    }
+    const hostnames = csv(flagString(args.flags, "hostname") ?? flagString(args.flags, "remote-patterns"))
+    return addImageLoader(json, {
+      kind: kindFlag,
+      ...(zoneOrigin ? { zoneOrigin } : {}),
+      ...(accountHash ? { accountHash } : {}),
+      ...(hostnames
+        ? { remotePatterns: hostnames.map((hostname) => ({ protocol: "https", hostname })) }
+        : {}),
+    })
+  }
+  if (kind === "stream") {
+    return addStream(json, { binding: binding ?? "STREAM", ...(remote ? { remote: true } : {}) })
+  }
+  if (kind === "media") {
+    return addMediaTransforms(json, {
+      binding: binding ?? "MEDIA",
+      remote: flagString(args.flags, "remote") === "false" ? false : true,
+    })
+  }
+  if (kind === "realtime") {
+    return addRealtime(json, {
+      appId: flagString(args.flags, "app-id"),
+    })
+  }
+  return json
+}
+
+async function writeP3Stubs(root: string, kind: string, args: Args): Promise<void> {
+  if (kind === "email" && flagBool(args.flags, "inbound")) {
+    await writeStubIfMissing(root, "email.ts", emailStub())
+    await ensureDevDependency(root, "@cloudflare/workers-types", WORKERS_TYPES_SPEC)
+  }
 }
 
 async function provisionAccessOrExit(root: string, dest: string, json: CfnextJson): Promise<CfnextJson> {
@@ -476,6 +550,27 @@ export async function addCommand(args: Args): Promise<void> {
       } catch (error) {
         failIfGenerate(error)
       }
+    }
+    return
+  }
+
+  if (P3_KINDS.has(catalog.kind)) {
+    const before = JSON.stringify(json)
+    json = mutateP3(json, catalog.kind, args)
+    const unchanged = JSON.stringify(json) === before
+    await writeP3Stubs(root, catalog.kind, args)
+    await writeFile(dest, stringifyJsonc(json))
+    console.log(unchanged ? `${kind} already present → ${dest}` : `added ${kind} → ${dest}`)
+    if (catalog.kind === "email" && flagBool(args.flags, "inbound")) {
+      console.log("Email Routing is L4. See .cloudflare/generated/email-routing.plan.json for MX/TXT steps.")
+    }
+    if (catalog.kind === "realtime") {
+      console.log("Realtime has no wrangler key. See .cloudflare/generated/realtime.plan.json")
+    }
+    try {
+      await generate(root)
+    } catch (error) {
+      failIfGenerate(error)
     }
     return
   }

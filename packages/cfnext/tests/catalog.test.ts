@@ -25,7 +25,7 @@ test("every non-virtual wranglerKey exists on vendored wrangler schema", () => {
   expect(missing).toEqual([])
 })
 
-test("P2 emitImplemented includes P1 plus Access, Flagship, observability, logpush, web-analytics", () => {
+test("P3 emitImplemented includes P2 plus email and media kinds", () => {
   const implemented = CATALOG.filter((k) => k.emitImplemented).map((k) => k.kind).sort()
   expect(implemented).toEqual([
     "access",
@@ -33,15 +33,22 @@ test("P2 emitImplemented includes P1 plus Access, Flagship, observability, logpu
     "cron",
     "d1",
     "do",
+    "email",
+    "email-routing",
     "flagship",
     "hyperdrive",
+    "image-loader",
+    "images",
     "kv",
     "logpush",
+    "media",
     "observability",
     "queue",
     "r2",
+    "realtime",
     "secret",
     "secret-store",
+    "stream",
     "var",
     "vectorize",
     "version-metadata",
@@ -50,13 +57,8 @@ test("P2 emitImplemented includes P1 plus Access, Flagship, observability, logpu
   ])
 })
 
-test("Example A present paths include unimplemented catalog kinds", () => {
-  expect(presentUnimplementedPaths(exampleA).sort()).toEqual([
-    "email.routing",
-    "email.sending",
-    "media.images.binding",
-    "media.images.loader",
-  ])
+test("Example A present paths are implemented in P3", () => {
+  expect(presentUnimplementedPaths(exampleA)).toEqual([])
 })
 
 test("P0_BINDING_KINDS matches legacy BINDING_KINDS", () => {

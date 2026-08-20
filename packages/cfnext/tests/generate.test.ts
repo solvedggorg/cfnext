@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
 import { mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { dirname, join } from "node:path"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
 
 import { parseJsonc } from "../src/jsonc"
 import { generate, GenerateError } from "../src/generate"
@@ -35,10 +36,29 @@ test("generate writes hashed wrangler with build.command and no previews", async
   expect(await readFile(join(dir, "cfnext.config.generated.ts"), "utf8")).toContain("export default config")
 })
 
-test("generate refuses Example A unimplemented paths", async () => {
+test("generate Example A emits send_email and images", async () => {
   const dir = await tmpProject()
   await writeFile(join(dir, "cfnext.json"), JSON.stringify(exampleA, null, 2))
-  await expect(generate(dir)).rejects.toBeInstanceOf(GenerateError)
+  await writeFile(
+    join(dir, "email.ts"),
+    `export async function email() { }\n`,
+  )
+  await generate(dir)
+  const wrangler = parseJsonc<{
+    send_email?: Array<{ name: string; allowed_sender_addresses?: string[] }>
+    images?: { binding: string }
+  }>(splitGenerated(await readFile(join(dir, "wrangler.jsonc"), "utf8")).body)
+  expect(wrangler.send_email).toEqual([
+    { name: "EMAIL", allowed_sender_addresses: ["noreply@acme.com"] },
+  ])
+  expect(wrangler.images).toEqual({ binding: "IMAGES" })
+
+  const wranglerPkg = Bun.resolveSync("wrangler/package.json", import.meta.dir)
+  const schema = JSON.parse(readFileSync(join(dirname(wranglerPkg), "config-schema.json"), "utf8")) as object
+  const Ajv = (await import("ajv")).default
+  const ajv = new Ajv({ strict: false, allErrors: true })
+  const validate = ajv.compile(schema)
+  expect(validate(wrangler), JSON.stringify(validate.errors, null, 2)).toBe(true)
 })
 
 test("echo // hack makes wrangler dirty", async () => {
@@ -74,12 +94,12 @@ test("env overlay unimplemented fields are rejected", async () => {
   await writeFile(
     join(dir, "cfnext.json"),
     JSON.stringify(
-      { name: "demo", target: "workers", env: { staging: { email: { sending: { binding: "EMAIL" } } } } },
+      { name: "demo", target: "workers", env: { staging: { agents: [{ className: "ResearchAgent" }] } } },
       null,
       2,
     ),
   )
-  await expect(generate(dir)).rejects.toThrow(/env\.staging\.email/)
+  await expect(generate(dir)).rejects.toThrow(/env\.staging\.agents/)
 })
 
 test("implicit generate skips when cfnext.json is missing", async () => {

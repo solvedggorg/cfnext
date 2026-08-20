@@ -35,6 +35,19 @@ export function queueStub(): string {
 `
 }
 
+export function emailStub(): string {
+  return `import type { ForwardableEmailMessage } from "@cloudflare/workers-types"
+
+export async function email(
+  message: ForwardableEmailMessage,
+  env: CloudflareEnv,
+  ctx: ExecutionContext,
+): Promise<void> {
+  await message.setReject("cfnext: implement email() in email.ts")
+}
+`
+}
+
 export function scheduledStub(): string {
   return `export async function scheduled(
   controller: ScheduledController,

@@ -26,6 +26,10 @@ const NON_INHERITABLE = [
   "triggers",
   "version_metadata",
   "flagship",
+  "send_email",
+  "images",
+  "stream",
+  "media",
 ] as const
 
 function mergeBindingArrays<T extends { binding: string; omit?: boolean }>(
@@ -129,8 +133,6 @@ const UNIMPLEMENTED_OVERLAY = [
   "agents",
   "cron",
   "analytics",
-  "email",
-  "media",
 ] as const
 
 function compileEnvBlock(
@@ -165,6 +167,8 @@ function compileEnvBlock(
     flagship: overlay.flagship ?? base.flagship,
     observability: overlay.observability,
     logpush: overlay.logpush,
+    email: overlay.email ?? base.email,
+    media: overlay.media ?? base.media,
   }
   const fragment = emptyWrangler(app)
   try {

@@ -42,10 +42,10 @@ test("cfnext add r2 writes cfnext.json and regenerates wrangler", async () => {
   expect(wrangler).toContain("demo-bucket")
 })
 
-test("cfnext add email exits 1 in P0", async () => {
+test("cfnext add ai-search exits 1 until P4", async () => {
   const dir = await tmpDir()
   await writeFile(join(dir, "cfnext.json"), JSON.stringify(p0Fixture, null, 2))
-  const result = await runCli(dir, ["add", "email"])
+  const result = await runCli(dir, ["add", "ai-search"])
   expect(result.code).toBe(1)
   expect(result.stderr).toMatch(/not implemented/i)
 })

@@ -50,6 +50,10 @@ const MAPPED_KEYS = new Set([
   "observability",
   "logpush",
   "flagship",
+  "send_email",
+  "images",
+  "stream",
+  "media",
 ])
 
 function str(value: unknown): string | undefined {
@@ -195,6 +199,48 @@ function mapP2Fields(wrangler: WranglerConfig | Partial<WranglerConfig>, json: C
   if (wrangler.flagship?.length) json.flagship = mapFlagship(wrangler.flagship)
 }
 
+function mapP3Fields(wrangler: WranglerConfig | Partial<WranglerConfig>, json: CfnextJson | CfnextEnvOverlay): void {
+  const sending = wrangler.send_email?.[0]
+  if (sending) {
+    json.email = {
+      ...json.email,
+      sending: {
+        binding: sending.name,
+        ...(sending.destination_address ? { destinationAddress: sending.destination_address } : {}),
+        ...(sending.allowed_destination_addresses?.length
+          ? { allowedDestinations: sending.allowed_destination_addresses }
+          : {}),
+        ...(sending.allowed_sender_addresses?.length
+          ? { allowedSenders: sending.allowed_sender_addresses }
+          : {}),
+        ...(sending.remote ? { remote: true } : {}),
+      },
+    }
+  }
+  if (wrangler.images?.binding || wrangler.stream?.binding || wrangler.media?.binding) {
+    json.media = { ...json.media }
+    if (wrangler.images?.binding) {
+      json.media.images = {
+        ...json.media.images,
+        binding: wrangler.images.binding,
+        ...(wrangler.images.remote ? { remote: true } : {}),
+      }
+    }
+    if (wrangler.stream?.binding) {
+      json.media.stream = {
+        binding: wrangler.stream.binding,
+        ...(wrangler.stream.remote ? { remote: true } : {}),
+      }
+    }
+    if (wrangler.media?.binding) {
+      json.media.transforms = {
+        binding: wrangler.media.binding,
+        ...(wrangler.media.remote ? { remote: true } : {}),
+      }
+    }
+  }
+}
+
 function wranglerToOverlay(wrangler: Partial<WranglerConfig>): CfnextEnvOverlay {
   const overlay: CfnextEnvOverlay = {}
   if (wrangler.compatibility_date) overlay.compatibilityDate = wrangler.compatibility_date
@@ -207,6 +253,7 @@ function wranglerToOverlay(wrangler: Partial<WranglerConfig>): CfnextEnvOverlay 
   if (wrangler.ai?.binding) overlay.ai = { binding: wrangler.ai.binding }
   mapP1Fields(wrangler, overlay)
   mapP2Fields(wrangler, overlay)
+  mapP3Fields(wrangler, overlay)
   const passthrough: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(wrangler)) {
     if (COMPILER_OWNED.has(key) || MAPPED_KEYS.has(key) || key === "vars") continue
@@ -237,6 +284,7 @@ export function wranglerToCfnextJson(wrangler: WranglerConfig, fallbackName: str
   if (wrangler.ai?.binding) json.ai = { binding: wrangler.ai.binding }
   mapP1Fields(wrangler, json)
   mapP2Fields(wrangler, json)
+  mapP3Fields(wrangler, json)
   if (wrangler.access?.dev) {
     json.access = { ...json.access, dev: wrangler.access.dev }
   }

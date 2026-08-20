@@ -1,8 +1,10 @@
 import type {
   CfnextAccess,
+  CfnextEmail,
   CfnextFlagship,
   CfnextJson,
   CfnextLogpush,
+  CfnextMedia,
   CfnextObservability,
   D1Binding,
   HyperdriveBinding,
@@ -322,6 +324,51 @@ function emitLogpush(json: CfnextJson, wrangler: WranglerConfig): void {
   if (logpush.enabled != null) wrangler.logpush = logpush.enabled
 }
 
+function emitEmail(json: CfnextJson, wrangler: WranglerConfig): void {
+  const sending: NonNullable<CfnextEmail["sending"]> | undefined = json.email?.sending
+  if (!sending) return
+  const name = sending.binding || "EMAIL"
+  const row: NonNullable<WranglerConfig["send_email"]>[number] = { name }
+  if (sending.destinationAddress) row.destination_address = sending.destinationAddress
+  if (sending.allowedDestinations?.length) {
+    row.allowed_destination_addresses = sending.allowedDestinations
+  }
+  if (sending.allowedSenders?.length) row.allowed_sender_addresses = sending.allowedSenders
+  if (sending.remote) row.remote = true
+  const rows = [...(wrangler.send_email ?? [])]
+  const index = rows.findIndex((item) => item.name === name)
+  if (index === -1) rows.push(row)
+  else rows[index] = { ...rows[index], ...row }
+  wrangler.send_email = rows
+}
+
+function emitImages(json: CfnextJson, wrangler: WranglerConfig): void {
+  const images: NonNullable<CfnextMedia["images"]> | undefined = json.media?.images
+  if (!images?.binding) return
+  wrangler.images = {
+    binding: images.binding,
+    ...(images.remote ? { remote: true } : {}),
+  }
+}
+
+function emitStream(json: CfnextJson, wrangler: WranglerConfig): void {
+  const stream = json.media?.stream
+  if (!stream?.binding) return
+  wrangler.stream = {
+    binding: stream.binding,
+    ...(stream.remote ? { remote: true } : {}),
+  }
+}
+
+function emitMediaTransforms(json: CfnextJson, wrangler: WranglerConfig): void {
+  const transforms = json.media?.transforms
+  if (!transforms?.binding) return
+  wrangler.media = {
+    binding: transforms.binding,
+    ...(transforms.remote ? { remote: true } : {}),
+  }
+}
+
 function emitVersionMetadata(json: CfnextJson, wrangler: WranglerConfig): void {
   const vm = json.bindings?.versionMetadata
   if (vm === false) return
@@ -623,7 +670,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "send_email",
     jsonPath: "email.sending",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 3,
     phase: "P3",
     wranglerAllowlist: [
@@ -639,7 +686,7 @@ export const CATALOG: CatalogKind[] = [
     kind: "email-routing",
     jsonPath: "email.routing",
     add: false,
-    emitImplemented: false,
+    emitImplemented: true,
     virtual: true,
     level: 4,
     phase: "P3",
@@ -651,7 +698,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "images",
     jsonPath: "media.images.binding",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     singleton: true,
     level: 1,
     phase: "P3",
@@ -662,7 +709,7 @@ export const CATALOG: CatalogKind[] = [
     kind: "image-loader",
     jsonPath: "media.images.loader",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     virtual: true,
     level: 3,
     phase: "P3",
@@ -674,7 +721,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "stream",
     jsonPath: "media.stream",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 3,
     phase: "P3",
     wranglerAllowlist: ["binding", "remote"],
@@ -685,7 +732,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "media",
     jsonPath: "media.transforms",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 2,
     phase: "P3",
     wranglerAllowlist: ["binding", "remote"],
@@ -695,7 +742,7 @@ export const CATALOG: CatalogKind[] = [
     kind: "realtime",
     jsonPath: "media.realtime",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     virtual: true,
     level: 4,
     phase: "P3",
@@ -887,6 +934,10 @@ export function emitImplementedBindings(json: CfnextJson, wrangler: WranglerConf
   emitFlagship(json, wrangler)
   emitObservability(json, wrangler)
   emitLogpush(json, wrangler)
+  emitEmail(json, wrangler)
+  emitImages(json, wrangler)
+  emitStream(json, wrangler)
+  emitMediaTransforms(json, wrangler)
 }
 
 export const P0_BINDING_KINDS = ["d1", "r2", "kv", "hyperdrive", "ai", "vectorize", "queue"] as const
