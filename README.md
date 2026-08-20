@@ -37,7 +37,7 @@ Bun-first. Typed `withCfnext()` for `next.config.ts`. Security headers on by def
 
 ## Pick a target
 
-Same CLI. Three runtime shapes. Choose at init (`--target`) or in `cfnext.config.ts`.
+Same CLI. Three runtime shapes. Choose at init (`--target`) or in `cfnext.json`.
 
 ### Workers — static and prerender on the edge
 
@@ -158,19 +158,17 @@ Auth checks belong in front of the app, not only inside it. Point prefixes at a 
 bunx cfnext init my-app --target workers --auth clerk
 ```
 
-`--auth clerk` wires Clerk-style `__session` / `__client_uat` cookies, `/sign-in`, and protected prefixes. Configure more in `cfnext.config.ts`:
+`--auth clerk` wires Clerk-style `__session` / `__client_uat` cookies, `/sign-in`, and protected prefixes. Configure more in `cfnext.json`:
 
-```ts
-import type { CfnextUserConfig } from "cfnext"
-
-export default {
-  name: "my-app",
-  target: "ssr",
-  protect: {
-    prefixes: ["/dashboard", "/account"],
-    signInPath: "/sign-in",
-  },
-} satisfies CfnextUserConfig
+```json
+{
+  "name": "my-app",
+  "target": "ssr",
+  "protect": {
+    "prefixes": ["/dashboard", "/account"],
+    "signInPath": "/sign-in"
+  }
+}
 ```
 
 Security headers (`X-Frame-Options`, `nosniff`, referrer policy, permissions policy) ship on responses unless you turn them off.
@@ -182,7 +180,7 @@ Security headers (`X-Frame-Options`, `nosniff`, referrer policy, permissions pol
 | Command | What you get |
 | --- | --- |
 | `cfnext init [dir]` | New Next.js app, or `--existing` to attach |
-| `cfnext add d1\|r2\|kv\|hyperdrive\|ai\|vectorize\|queue` | Binding in `wrangler.jsonc` |
+| `cfnext add d1\|r2\|kv\|hyperdrive\|ai\|vectorize\|queue` | Binding in `cfnext.json` |
 | `cfnext build` | `next build` — adapter packs `.cloudflare/assets` |
 | `cfnext deploy` | Build + `wrangler deploy` |
 | `cfnext preview` | Build + version upload |
@@ -196,17 +194,15 @@ Security headers (`X-Frame-Options`, `nosniff`, referrer policy, permissions pol
 
 ## Configure once
 
-`cfnext.config.ts` is the project file. `withCfnext()` is the Next hook.
+`cfnext.json` is the project file. `withCfnext()` is the Next hook.
 
-```ts
-import type { CfnextUserConfig } from "cfnext"
-
-export default {
-  name: "my-app",
-  target: "ssr",
-  images: { unoptimized: true },
-  securityHeaders: true,
-} satisfies CfnextUserConfig
+```json
+{
+  "name": "my-app",
+  "target": "ssr",
+  "images": { "unoptimized": true },
+  "securityHeaders": true
+}
 ```
 
 ```ts

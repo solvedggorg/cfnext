@@ -1,6 +1,6 @@
 /**
  * Clerk helpers extracted from @solved/cf.
- * Opt-in via `cfnext init --auth clerk` or by importing these prefixes into cfnext.config.ts.
+ * Opt-in via `cfnext init --auth clerk` or by importing these prefixes into `cfnext.hooks.ts`.
  */
 
 export const CLERK_APP_PREFIXES = [

@@ -32,6 +32,7 @@ test("container scaffold includes the image and NextApp class", () => {
     packageSpecifier: "file:../cfnext",
   })
   expect(files.Dockerfile).toContain('"next", "start"')
+  expect(files.Dockerfile).toContain("CFNEXT_TARGET=container")
   expect(files["worker.ts"]).toContain("export class NextApp")
   const wrangler = parseJsonc<{
     containers?: Array<{ class_name: string }>
@@ -51,6 +52,8 @@ test("ssr scaffold writes the SSR worker and a dynamic health route", () => {
   })
   expect(files["worker.ts"]).toContain("createSsrWorker")
   expect(files["app/api/health/route.ts"]).not.toContain("force-static")
+  expect(files["app/api/health/route.ts"]).toContain("env.ASSETS")
+  expect(files["app/api/health/route.ts"]).not.toContain("as {")
   expect(files.Dockerfile).toBeUndefined()
   const wrangler = parseJsonc<{
     compatibility_flags?: string[]

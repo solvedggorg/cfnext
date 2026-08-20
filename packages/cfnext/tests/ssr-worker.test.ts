@@ -109,8 +109,8 @@ test("makes Cloudflare bindings visible to the invoked handler", async () => {
       health: async () => ({
         handler: async (_req: NodeIncomingMessage, res: NodeServerResponse) => {
           const { getCloudflareContext } = await import("../src/ssr/context")
-          const { env } = getCloudflareContext()
-          res.end((env as { FLAG: string }).FLAG)
+          const { env } = getCloudflareContext<{ FLAG: string }>()
+          res.end(env.FLAG)
         },
       }),
     },

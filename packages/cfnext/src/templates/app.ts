@@ -360,18 +360,18 @@ import { getCloudflareContext } from "cfnext/server"
 
 export async function GET() {
   const headerList = await headers()
-  let hasEnv = false
+  let assets = false
   try {
-    hasEnv = Boolean(getCloudflareContext().env)
+    assets = Boolean(getCloudflareContext().env.ASSETS)
   } catch {
-    hasEnv = false
+    assets = false
   }
   return Response.json({
     ok: true,
     adapter: "cfnext",
     target: "ssr",
     host: headerList.get("host"),
-    bindings: hasEnv,
+    bindings: assets,
   })
 }
 `
@@ -450,6 +450,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
 ENV HOSTNAME=0.0.0.0
+ENV CFNEXT_TARGET=container
 COPY --from=build /app/package.json ./
 COPY --from=build /app/bun.lock ./
 COPY --from=build /app/node_modules ./node_modules
