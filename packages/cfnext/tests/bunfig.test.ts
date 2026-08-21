@@ -14,11 +14,15 @@ test("init scaffold bunfig installs cfnext from the solved registry", () => {
     name: "demo",
     target: "workers",
     bindings: [],
-    packageSpecifier: "cfnext@0.7.0",
+    packageSpecifier: "^0.7.2",
   })
   const bunfig = files["bunfig.toml"]
   expect(bunfig).toContain("[install]")
   expect(bunfig).toContain(`registry = "${REGISTRY_URL}"`)
+
+  const scaffold = JSON.parse(files["package.json"]!) as { devDependencies?: Record<string, string> }
+  expect(scaffold.devDependencies?.cfnext).toMatch(/^\^/)
+  expect(scaffold.devDependencies?.cfnext).not.toContain("cfnext@")
 })
 
 async function tempDir(): Promise<string> {

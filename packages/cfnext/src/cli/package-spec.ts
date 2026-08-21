@@ -11,7 +11,13 @@ export type PackageSpecifierInput = {
 
 export function resolvePackageSpecifier(input: PackageSpecifierInput): string {
   if (input.override) return input.override
-  if (input.compiled) return `cfnext@${input.version}`
+  // Dependency VALUE: bare range. "cfnext@x" doubles the name, and absolute
+  // file: paths leak the CLI's install location into user projects — so both
+  // compiled binaries and anything running out of node_modules publish a
+  // range. file: is only correct inside the cfnext monorepo checkout.
+  if (input.compiled || input.packageDir.includes("/node_modules/")) {
+    return `^${input.version}`
+  }
   return `file:${input.packageDir}`
 }
 
