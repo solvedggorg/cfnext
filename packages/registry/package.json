@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Heavily rate-limited npm-compatible micro registry for cfnext at registry1.solved.gg",
   "scripts": {
+    "build": "bun ../cfnext/src/build/emit-declarations.ts && bun src/build/embed-package.ts",
     "build:embed": "bun src/build/embed-package.ts",
     "dev": "bun run build:embed && bun x wrangler dev",
     "deploy": "bun run build:embed && bun x wrangler deploy",
