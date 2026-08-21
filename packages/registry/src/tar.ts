@@ -1,9 +1,7 @@
 import { gzipSync } from "node:zlib"
 
-import { findVersion, type Catalog } from "./catalog"
-
 const BLOCK = 512
-const MTIME = 1_723_766_400 // 2024-08-16T00:00:00Z — fixed for stable hashes
+const MTIME = 1_723_766_400 // fixed for stable hashes
 
 function octal(value: number, length: number): string {
   return `${value.toString(8).padStart(length - 1, "0")}\0`
@@ -32,6 +30,8 @@ function padBlock(data: Buffer): Buffer {
   return extra === 0 ? data : Buffer.concat([data, Buffer.alloc(extra)])
 }
 
+// Build-time only: the Worker serves precomputed bytes from src/embedded.ts,
+// so node:zlib never loads at runtime.
 export function createTarGz(files: Array<{ name: string; content: string }>): Buffer {
   const parts: Buffer[] = []
   for (const file of files) {
@@ -42,33 +42,4 @@ export function createTarGz(files: Array<{ name: string; content: string }>): Bu
   const gz = gzipSync(Buffer.concat(parts), { level: 9 })
   gz.writeUInt32LE(0, 4)
   return gz
-}
-
-export function packageFiles(catalog: Catalog, version: string): Array<{ name: string; content: string }> {
-  const entry = findVersion(catalog, version)
-  if (!entry) throw new Error(`unknown version ${version}`)
-  const pkg = {
-    name: catalog.name,
-    version: entry.version,
-    description: entry.description,
-    license: catalog.license,
-    type: "module",
-    main: "index.js",
-    engines: { bun: ">=1.2.0" },
-  }
-  return [
-    { name: "package/package.json", content: `${JSON.stringify(pkg, null, 2)}\n` },
-    {
-      name: "package/README.md",
-      content: `${catalog.readme}\n\nThis tarball is **${entry.version}** (\`${entry.channel}\`).\n`,
-    },
-    {
-      name: "package/index.js",
-      content: `export const version = ${JSON.stringify(entry.version)}\nexport const channel = ${JSON.stringify(entry.channel)}\n`,
-    },
-  ]
-}
-
-export function packVersionTarball(catalog: Catalog, version: string): Buffer {
-  return createTarGz(packageFiles(catalog, version))
 }

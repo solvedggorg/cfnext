@@ -5,10 +5,11 @@
   "type": "module",
   "description": "Heavily rate-limited npm-compatible micro registry for cfnext at registry1.solved.gg",
   "scripts": {
-    "dev": "bun x wrangler dev",
-    "deploy": "bun x wrangler deploy",
+    "build:embed": "bun src/build/embed-package.ts",
+    "dev": "bun run build:embed && bun x wrangler dev",
+    "deploy": "bun run build:embed && bun x wrangler deploy",
     "types": "bun x wrangler types --env-interface RegistryEnv src/env.d.ts",
-    "test": "bun test",
+    "test": "bun run build:embed && bun test",
     "typecheck": "bun --bun tsc --noEmit"
   },
   "devDependencies": {

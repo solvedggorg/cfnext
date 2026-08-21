@@ -1,27 +1,21 @@
 import { expect, test } from "bun:test"
-import { createHash } from "node:crypto"
 
 import { CATALOG } from "../src/catalog"
+import { EMBEDDED_PACKAGE, embeddedTarball } from "../src/embedded"
 import { buildPackument, buildVersionManifest } from "../src/packument"
-import { packVersionTarball } from "../src/tar"
 
 const origin = "https://registry1.solved.gg"
+const latest = EMBEDDED_PACKAGE.version
 
-test("full packument lists all five versions and npm dist-tags", () => {
+test("full packument lists the real version and npm dist-tags", () => {
   const doc = buildPackument({ catalog: CATALOG, origin, abbreviated: false })
   expect(doc._id).toBe("cfnext")
   expect(doc.name).toBe("cfnext")
-  expect(Object.keys(doc.versions).sort()).toEqual(
-    CATALOG.versions.map((item) => item.version).sort(),
-  )
-  expect(doc["dist-tags"]).toEqual({
-    latest: CATALOG.distTags.latest,
-    beta: CATALOG.distTags.beta,
-    nightly: CATALOG.distTags.nightly,
-  })
-  expect(doc.versions[CATALOG.distTags.latest]?.dist.tarball).toBe(
-    `${origin}/cfnext/-/cfnext-${CATALOG.distTags.latest}.tgz`,
-  )
+  expect(Object.keys(doc.versions)).toEqual([latest])
+  expect(doc["dist-tags"]).toEqual({ latest })
+  const dist = doc.versions[latest]?.dist
+  expect(dist?.tarball).toBe(`${origin}/cfnext/-/cfnext-${latest}.tgz`)
+  expect(dist?.integrity).toBe(EMBEDDED_PACKAGE.integrity)
 })
 
 test("abbreviated packument omits readme and _id", () => {
@@ -30,17 +24,29 @@ test("abbreviated packument omits readme and _id", () => {
   expect(doc.modified).toBeString()
   expect((doc as { _id?: string })._id).toBeUndefined()
   expect((doc as { readme?: string }).readme).toBeUndefined()
-  expect(Object.keys(doc.versions)).toHaveLength(5)
+  expect(Object.keys(doc.versions)).toHaveLength(1)
 })
 
-test("version manifest dist hashes match the packed tarball", async () => {
-  const version = CATALOG.distTags.latest
-  const tarball = packVersionTarball(CATALOG, version)
-  const manifest = buildVersionManifest({ catalog: CATALOG, origin, version })
+test("manifest carries the real package metadata installers need", () => {
+  const manifest = buildVersionManifest({ catalog: CATALOG, origin, version: latest })
   expect(manifest?.name).toBe("cfnext")
-  expect(manifest?.version).toBe(version)
-  expect(manifest?.dist.shasum).toBe(createHash("sha1").update(tarball).digest("hex"))
+  expect(manifest?.version).toBe(latest)
+  const raw = manifest as unknown as Record<string, Record<string, string>>
+  expect(raw.engines?.bun).toBe(">=1.2.0")
+  expect(raw.bin?.cfnext).toBe("./bin/cfnext")
+  expect(raw.peerDependencies?.next).toContain("16.2")
+  expect(Object.keys(raw.exports ?? {})).toContain("./server")
+})
+
+test("advertised hashes match the exact served tarball bytes", async () => {
+  const bytes = embeddedTarball()
+  const manifest = buildVersionManifest({ catalog: CATALOG, origin, version: latest })
+  expect(manifest?.dist.shasum).toBe(new Bun.CryptoHasher("sha1").update(bytes).digest("hex"))
   expect(manifest?.dist.integrity).toBe(
-    `sha512-${createHash("sha512").update(tarball).digest("base64")}`,
+    `sha512-${new Bun.CryptoHasher("sha512").update(bytes).digest("base64")}`,
   )
+})
+
+test("unknown versions return null manifests", () => {
+  expect(buildVersionManifest({ catalog: CATALOG, origin, version: "9.9.9" })).toBeNull()
 })

@@ -79,6 +79,11 @@ export type WranglerConfig = {
   migrations?: Array<Record<string, unknown>>
   workflows?: Array<Record<string, unknown>>
   triggers?: { crons?: string[] }
+  analytics_engine_datasets?: Array<Record<string, unknown>>
+  pipelines?: Array<Record<string, unknown>>
+  browser?: { binding: string; remote?: boolean }
+  worker_loaders?: Array<Record<string, unknown>>
+  services?: Array<Record<string, unknown>>
 }
 
 export function wranglerPath(projectDir: string): string {

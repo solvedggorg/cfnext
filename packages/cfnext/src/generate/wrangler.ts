@@ -66,6 +66,12 @@ export function mergeBindings(
     hyperdrive: mergeBindingArrays(base?.hyperdrive, overlay.hyperdrive),
     vectorize: mergeBindingArrays(base?.vectorize, overlay.vectorize),
     queues: mergeBindingArrays(base?.queues, overlay.queues),
+    pipelines: mergeBindingArrays(base?.pipelines, overlay.pipelines),
+    services: mergeBindingArrays(
+      base?.services as Array<{ binding: string }> | undefined,
+      overlay.services as Array<{ binding: string }> | undefined,
+    ),
+    workerLoaders: mergeBindingArrays(base?.workerLoaders, overlay.workerLoaders),
   }
 }
 

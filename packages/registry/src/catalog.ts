@@ -1,4 +1,6 @@
-export type Channel = "previous" | "current" | "beta" | "nightly"
+import { EMBEDDED_PACKAGE } from "./embedded"
+
+export type Channel = "current" | "previous" | "beta" | "nightly"
 
 export type CatalogVersion = {
   version: string
@@ -7,62 +9,30 @@ export type CatalogVersion = {
   publishedAt: string
 }
 
+// One real version: the package embedded at build time by
+// src/build/embed-package.ts. Additional channels return when there are real
+// builds to serve; stub versions were removed so every install works.
 export const VERSIONS: CatalogVersion[] = [
   {
-    version: "0.0.1",
-    channel: "previous",
-    description: "cfnext previous release (static Workers packer).",
-    publishedAt: "2026-07-15T00:00:00.000Z",
-  },
-  {
-    version: "0.0.2",
-    channel: "previous",
-    description: "cfnext previous release (container target).",
-    publishedAt: "2026-08-01T00:00:00.000Z",
-  },
-  {
-    version: "0.1.0",
+    version: EMBEDDED_PACKAGE.version,
     channel: "current",
-    description:
-      "Next.js adapter and CLI for Cloudflare Workers compute and Containers. Bun-first. No OpenNext.",
-    publishedAt: "2026-08-16T00:00:00.000Z",
-  },
-  {
-    version: "0.2.0-beta.1",
-    channel: "beta",
-    description: "cfnext beta: worker-side SSR Adapter API.",
-    publishedAt: "2026-08-16T12:00:00.000Z",
-  },
-  {
-    version: "0.2.0-nightly.20260816",
-    channel: "nightly",
-    description: "cfnext nightly from 2026-08-16.",
-    publishedAt: "2026-08-16T18:00:00.000Z",
+    description: EMBEDDED_PACKAGE.description,
+    publishedAt: EMBEDDED_PACKAGE.publishedAt,
   },
 ]
 
 export const DIST_TAGS = {
-  latest: "0.1.0",
-  beta: "0.2.0-beta.1",
-  nightly: "0.2.0-nightly.20260816",
+  latest: EMBEDDED_PACKAGE.version,
 } as const
 
 export const CATALOG = {
-  name: "cfnext",
-  description:
-    "Next.js adapter and CLI for Cloudflare Workers compute and Containers. Bun-first. No OpenNext.",
-  license: "MIT",
+  name: EMBEDDED_PACKAGE.manifest.name,
+  description: EMBEDDED_PACKAGE.description,
+  license: String(EMBEDDED_PACKAGE.manifest.license ?? "MIT"),
   homepage: "https://registry1.solved.gg",
   versions: VERSIONS,
   distTags: DIST_TAGS,
-  readme: `# cfnext
-
-Served from the solved.gg micro registry (\`registry1.solved.gg\`).
-
-- \`npm install cfnext --registry https://registry1.solved.gg\` (latest / current)
-- \`npm install cfnext@beta --registry https://registry1.solved.gg\`
-- \`npm install cfnext@nightly --registry https://registry1.solved.gg\`
-`,
+  readme: EMBEDDED_PACKAGE.readme,
 }
 
 export type Catalog = typeof CATALOG

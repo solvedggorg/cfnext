@@ -11,7 +11,7 @@
     },
     "packages/cfnext": {
       "name": "cfnext",
-      "version": "0.1.0",
+      "version": "0.6.0",
       "bin": {
         "cfnext": "./bin/cfnext",
       },
@@ -24,6 +24,8 @@
       },
       "peerDependencies": {
         "@cloudflare/containers": "^0.0.28 || ^0.3.0",
+        "@cloudflare/flagship": ">=0.1.0",
+        "@openfeature/server-sdk": ">=1.0.0",
         "next": ">=16.2.0",
         "react": ">=19.0.0",
         "react-dom": ">=19.0.0",
@@ -31,6 +33,8 @@
       },
       "optionalPeers": [
         "@cloudflare/containers",
+        "@cloudflare/flagship",
+        "@openfeature/server-sdk",
         "next",
         "react",
         "react-dom",

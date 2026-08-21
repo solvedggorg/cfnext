@@ -448,8 +448,53 @@ function emitAgents(json: CfnextJson, wrangler: WranglerConfig): void {
   wrangler.durable_objects = { bindings }
 }
 
-function emitVersionMetadata(json: CfnextJson, wrangler: WranglerConfig): void {
-  const vm = json.bindings?.versionMetadata
+function emitAnalyticsEngine(json: CfnextJson, wrangler: WranglerConfig): void {
+  for (const item of json.analytics?.engine ?? []) {
+    if (item.omit) continue
+    // wrangler schema allows only binding + dataset here (no remote).
+    const row: Record<string, unknown> = { binding: item.binding }
+    if (item.dataset) row.dataset = item.dataset
+    wrangler.analytics_engine_datasets = pushUnique(wrangler.analytics_engine_datasets, row)
+  }
+}
+
+function emitPipelines(json: CfnextJson, wrangler: WranglerConfig): void {
+  for (const item of json.bindings?.pipelines ?? []) {
+    if (item.omit) continue
+    const row: Record<string, unknown> = { binding: item.binding }
+    if (item.stream) row.stream = item.stream
+    if (item.remote) row.remote = true
+    wrangler.pipelines = pushUnique(wrangler.pipelines, row)
+  }
+}
+
+function emitBrowser(json: CfnextJson, wrangler: WranglerConfig): void {
+  const browser = json.bindings?.browser
+  if (!browser || browser.omit) return
+  wrangler.browser = { binding: browser.binding, ...(browser.remote ? { remote: true } : {}) }
+}
+
+function emitWorkerLoaders(json: CfnextJson, wrangler: WranglerConfig): void {
+  for (const item of json.bindings?.workerLoaders ?? []) {
+    if (item.omit) continue
+    // wrangler schema allows only the binding name.
+    wrangler.worker_loaders = pushUnique(wrangler.worker_loaders, { binding: item.binding })
+  }
+}
+
+function emitServices(json: CfnextJson, wrangler: WranglerConfig): void {
+  for (const item of json.bindings?.services ?? []) {
+    if (item.omit) continue
+    if (!item.service) {
+      throw new CatalogError(`service binding ${item.binding} requires service`)
+    }
+    const row: Record<string, unknown> = { binding: item.binding, service: item.service }
+    if (item.entrypoint) row.entrypoint = item.entrypoint
+    wrangler.services = pushUnique(wrangler.services, row)
+  }
+}
+
+function emitVersionMetadata(json: CfnextJson, wrangler: WranglerConfig): void {  const vm = json.bindings?.versionMetadata
   if (vm === false) return
   if (vm && typeof vm === "object") {
     wrangler.version_metadata = { binding: vm.binding }
@@ -899,7 +944,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "analytics_engine_datasets",
     jsonPath: "analytics.engine",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 2,
     phase: "P5",
     wranglerAllowlist: ["binding", "dataset"],
@@ -910,7 +955,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "pipelines",
     jsonPath: "bindings.pipelines",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 2,
     phase: "P5",
     wranglerAllowlist: ["binding", "pipeline"],
@@ -921,7 +966,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "browser",
     jsonPath: "bindings.browser",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     singleton: true,
     level: 2,
     phase: "P5",
@@ -933,7 +978,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "worker_loaders",
     jsonPath: "bindings.workerLoaders",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 1,
     phase: "P5",
     wranglerAllowlist: ["binding"],
@@ -944,7 +989,7 @@ export const CATALOG: CatalogKind[] = [
     wranglerKey: "services",
     jsonPath: "bindings.services",
     add: true,
-    emitImplemented: false,
+    emitImplemented: true,
     level: 1,
     phase: "P5",
     wranglerAllowlist: ["binding", "service", "entrypoint"],
@@ -998,6 +1043,11 @@ export function emitImplementedBindings(json: CfnextJson, wrangler: WranglerConf
   for (const item of json.ai?.vectorize ?? []) {
     emitVectorize({ ...item, indexName: item.indexName ?? `${app}-index` }, wrangler)
   }
+  emitAnalyticsEngine(json, wrangler)
+  emitPipelines(json, wrangler)
+  emitBrowser(json, wrangler)
+  emitWorkerLoaders(json, wrangler)
+  emitServices(json, wrangler)
   for (const item of json.bindings?.queues ?? []) {
     if (!item.omit) emitQueue(item, wrangler)
   }

@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, isAbsolute, join, resolve } from "node:path"
 
 import { BINDING_KINDS, type BindingKind } from "../../bindings"
+import { REGISTRY_URL } from "../../constants"
 import { inferName, type DeployTarget } from "../../config"
 import { renderFiles, type InitOptions } from "../../templates/app"
 import { type Args, flagBool, flagString } from "../args"
@@ -94,7 +95,7 @@ Add bindings later with: bunx cfnext add d1
 
 async function attachExisting(dest: string, opts: InitOptions): Promise<void> {
   const files = renderFiles(opts)
-  const skip = new Set(["app/layout.tsx", "app/page.tsx", "app/globals.css", "package.json"])
+  const skip = new Set(["app/layout.tsx", "app/page.tsx", "app/globals.css", "package.json", "bunfig.toml"])
   for (const [rel, contents] of Object.entries(files)) {
     if (skip.has(rel) && existsSync(join(dest, rel))) continue
     const path = join(dest, rel)
@@ -105,8 +106,25 @@ async function attachExisting(dest: string, opts: InitOptions): Promise<void> {
     await writeFile(path, contents)
   }
   await patchPackageJson(dest)
+  await ensureBunfigRegistry(dest)
   await noteNextConfig(dest)
   console.log(`attached cfnext to ${dest}`)
+}
+
+// Cloudflare Builds run `bun install` without your home-directory config, so
+// the project bunfig.toml must carry the registry that serves cfnext.
+export async function ensureBunfigRegistry(dest: string): Promise<void> {
+  const path = join(dest, "bunfig.toml")
+  const text = existsSync(path) ? await readFile(path, "utf8") : ""
+  if (/^\s*registry\s*=\s*["']https?:\/\//m.test(text)) return
+  if (/^\[install\]/m.test(text)) {
+    console.log(
+      `bunfig.toml has an [install] table without a registry. Add:\n\n  [install]\n  registry = "${REGISTRY_URL}"`,
+    )
+    return
+  }
+  const base = text === "" ? "[run]\nbun = true\n\n" : text
+  await writeFile(path, `${base}# cfnext installs from the solved.gg micro registry (everything else passes through to npm).\n[install]\nregistry = "${REGISTRY_URL}"\n`)
 }
 
 async function patchPackageJson(dest: string): Promise<void> {

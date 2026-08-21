@@ -1,6 +1,6 @@
 import type { BindingKind } from "../bindings"
 import { BINDING_DEFAULTS } from "../bindings"
-import { CFNEXT_VERSION } from "../constants"
+import { CFNEXT_VERSION, REGISTRY_URL } from "../constants"
 import { compileWrangler } from "../generate/wrangler"
 import { stampGenerated } from "../generate/hash"
 import { renderRuntimeConfig } from "../generate/runtime-config"
@@ -103,7 +103,7 @@ export function renderFiles(opts: InitOptions): Record<string, string> {
     [GENERATED_WORKER]: renderGeneratedWorker(),
     [GENERATED_HANDLERS]: renderGeneratedHandlers(json),
     "worker.ts": workerFile(opts.target),
-    "bunfig.toml": "[run]\nbun = true\n",
+    "bunfig.toml": bunfig(),
     ".gitignore": gitignore(),
     "README.md": readme(opts),
     "cloudflare-env.d.ts": envStub(),
@@ -409,6 +409,17 @@ function ssrRuntimeStub(): string {
 export const handlers = []
 export const loaders = {}
 export const prerenders = []
+`
+}
+
+function bunfig(): string {
+  return `[run]
+bun = true
+
+# Install cfnext from the solved.gg micro registry (local dev and
+# Cloudflare Builds). Other packages pass through to npm.
+[install]
+registry = "${REGISTRY_URL}"
 `
 }
 

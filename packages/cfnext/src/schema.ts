@@ -62,7 +62,7 @@ export type CfnextBindings = {
   queues?: QueueBinding[]
   pipelines?: Array<BindingName & { stream?: string }>
   browser?: BindingName
-  services?: Array<{ binding: string; service: string; entrypoint?: string }>
+  services?: Array<{ binding: string; service: string; entrypoint?: string; omit?: boolean }>
   workerLoaders?: BindingName[]
   versionMetadata?: boolean | BindingName
   unsafe?: Array<{ name: string; type: string; [key: string]: unknown }>

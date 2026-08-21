@@ -1,7 +1,5 @@
-import { createHash } from "node:crypto"
-
-import { findVersion, type Catalog } from "./catalog"
-import { packVersionTarball } from "./tar"
+import { CATALOG, findVersion, type Catalog } from "./catalog"
+import { EMBEDDED_PACKAGE } from "./embedded"
 
 export type Dist = {
   tarball: string
@@ -20,47 +18,38 @@ export type VersionManifest = {
   dist: Dist
   directories: Record<string, never>
   _hasShrinkwrap: false
-}
-
-export function hashTarball(tarball: Buffer): { shasum: string; integrity: string } {
-  return {
-    shasum: createHash("sha1").update(tarball).digest("hex"),
-    integrity: `sha512-${createHash("sha512").update(tarball).digest("base64")}`,
-  }
+  [key: string]: unknown
 }
 
 export function tarballUrl(origin: string, name: string, version: string): string {
   return `${origin.replace(/\/$/, "")}/${name}/-/${name}-${version}.tgz`
 }
 
+// Hashes are computed once at build time over the exact embedded bytes; the
+// Worker runtime never re-packs or re-hashes.
 export function buildVersionManifest(opts: {
   catalog: Catalog
   origin: string
   version: string
 }): VersionManifest | null {
   const entry = findVersion(opts.catalog, opts.version)
-  if (!entry) return null
-  const tarball = packVersionTarball(opts.catalog, entry.version)
-  const files = [
-    { content: JSON.stringify({ name: opts.catalog.name, version: entry.version }) },
-    { content: opts.catalog.readme },
-    { content: "" },
-  ]
+  if (!entry || entry.version !== EMBEDDED_PACKAGE.version) return null
+  const base = EMBEDDED_PACKAGE.manifest as Record<string, unknown>
   return {
+    ...base,
+    _id: `${opts.catalog.name}@${entry.version}`,
     name: opts.catalog.name,
     version: entry.version,
-    description: entry.description,
-    license: opts.catalog.license,
-    _id: `${opts.catalog.name}@${entry.version}`,
-    directories: {},
-    _hasShrinkwrap: false,
     dist: {
       tarball: tarballUrl(opts.origin, opts.catalog.name, entry.version),
-      ...hashTarball(tarball),
-      fileCount: 3,
-      unpackedSize: files.reduce((sum, file) => sum + Buffer.byteLength(file.content), 0),
+      shasum: EMBEDDED_PACKAGE.shasum,
+      integrity: EMBEDDED_PACKAGE.integrity,
+      fileCount: EMBEDDED_PACKAGE.fileCount,
+      unpackedSize: EMBEDDED_PACKAGE.unpackedSize,
     },
-  }
+    directories: {},
+    _hasShrinkwrap: false,
+  } as unknown as VersionManifest
 }
 
 export function buildPackument(opts: {
