@@ -27,6 +27,7 @@ add
            access|flagship|logpush|web-analytics
            email|images|image-loader|stream|media|realtime
            model|ai-search|ai-gateway|agent|websearch|mcp-portal
+           analytics-engine|pipeline|browser|worker-loader|service
   --binding DB                 binding name
   --name my-db                 resource name
   --class RateLimiter          Durable Object / workflow / agent class

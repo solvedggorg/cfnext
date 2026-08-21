@@ -9,7 +9,9 @@ function upsert<T extends { binding: string }>(
   const items = [...(list ?? [])]
   const index = items.findIndex((item) => item.binding === binding)
   if (index === -1) return [...items, create()]
-  items[index] = patch({ ...items[index] })
+  const current = items[index]
+  if (!current) return [...items, create()]
+  items[index] = patch({ ...current })
   return items
 }
 

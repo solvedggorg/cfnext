@@ -25,7 +25,7 @@ test("every non-virtual wranglerKey exists on vendored wrangler schema", () => {
   expect(missing).toEqual([])
 })
 
-test("P4 emitImplemented includes P3 plus AI, agents, and MCP kinds", () => {
+test("P5 emitImplemented includes P4 plus data-plane extras", () => {
   const implemented = CATALOG.filter((k) => k.emitImplemented).map((k) => k.kind).sort()
   expect(implemented).toEqual([
     "access",
@@ -33,6 +33,8 @@ test("P4 emitImplemented includes P3 plus AI, agents, and MCP kinds", () => {
     "ai",
     "ai-gateway",
     "ai-search",
+    "analytics-engine",
+    "browser",
     "cron",
     "d1",
     "do",
@@ -48,17 +50,20 @@ test("P4 emitImplemented includes P3 plus AI, agents, and MCP kinds", () => {
     "media",
     "model",
     "observability",
+    "pipeline",
     "queue",
     "r2",
     "realtime",
     "secret",
     "secret-store",
+    "service",
     "stream",
     "var",
     "vectorize",
     "version-metadata",
     "web-analytics",
     "websearch",
+    "worker-loader",
     "workflow",
   ])
 })

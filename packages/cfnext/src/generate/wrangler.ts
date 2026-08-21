@@ -2,7 +2,7 @@ import { CatalogError, emitImplementedBindings, ensureP2ObservabilityDefaults } 
 import { COMPATIBILITY_DATE } from "../constants"
 import type { CfnextConfig } from "../config"
 import { assertMigrationsMatchLive, MigrationError, seedContainerMigration } from "../migrations"
-import type { CfnextBindings, CfnextEnvOverlay, CfnextJson } from "../schema"
+import type { BindingName, CfnextBindings, CfnextEnvOverlay, CfnextJson } from "../schema"
 import { buildWrangler, type WranglerConfig } from "../wrangler"
 import { GenerateError } from "./errors"
 import { GENERATED_WORKER } from "./worker"
@@ -34,6 +34,11 @@ const NON_INHERITABLE = [
   "ai_search_namespaces",
   "agent_memory",
   "websearch",
+  "analytics_engine_datasets",
+  "pipelines",
+  "browser",
+  "worker_loaders",
+  "services",
 ] as const
 
 function mergeBindingArrays<T extends { binding: string; omit?: boolean }>(
@@ -53,6 +58,15 @@ function mergeBindingArrays<T extends { binding: string; omit?: boolean }>(
   return [...map.values()]
 }
 
+function mergeBrowser(
+  base: BindingName | undefined,
+  overlay: BindingName | undefined,
+): BindingName | undefined {
+  if (!overlay) return base
+  if (overlay.omit) return undefined
+  return { ...base, ...overlay }
+}
+
 export function mergeBindings(
   base: CfnextBindings | undefined,
   overlay: CfnextBindings | undefined,
@@ -67,10 +81,8 @@ export function mergeBindings(
     vectorize: mergeBindingArrays(base?.vectorize, overlay.vectorize),
     queues: mergeBindingArrays(base?.queues, overlay.queues),
     pipelines: mergeBindingArrays(base?.pipelines, overlay.pipelines),
-    services: mergeBindingArrays(
-      base?.services as Array<{ binding: string }> | undefined,
-      overlay.services as Array<{ binding: string }> | undefined,
-    ),
+    browser: mergeBrowser(base?.browser, overlay.browser),
+    services: mergeBindingArrays(base?.services, overlay.services),
     workerLoaders: mergeBindingArrays(base?.workerLoaders, overlay.workerLoaders),
   }
 }
@@ -177,6 +189,7 @@ function compileEnvBlock(
     flagship: overlay.flagship ?? base.flagship,
     observability: overlay.observability,
     logpush: overlay.logpush,
+    analytics: base.analytics,
     email: overlay.email ?? base.email,
     media: overlay.media ?? base.media,
   }

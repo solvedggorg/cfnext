@@ -50,6 +50,7 @@ import {
   addWebsearch,
   workflowFromClass,
 } from "../p4-mutate"
+import { addAnalyticsEngine, addBrowser, addPipeline, addService, addWorkerLoader } from "../p5-mutate"
 import { AGENTS_SPEC, ensureDevDependency, WORKERS_TYPES_SPEC } from "../package-json"
 import { fail, run } from "../run"
 import {
@@ -223,6 +224,7 @@ const P1_KINDS = new Set(["do", "workflow", "cron", "secret", "secret-store", "v
 const P2_KINDS = new Set(["access", "flagship", "logpush", "web-analytics"])
 const P3_KINDS = new Set(["email", "images", "image-loader", "stream", "media", "realtime"])
 const P4_KINDS = new Set(["ai-search", "ai-gateway", "model", "agent", "mcp-portal", "websearch"])
+const P5_KINDS = new Set(["analytics-engine", "pipeline", "browser", "worker-loader", "service"])
 
 function csv(value: string | undefined): string[] | undefined {
   if (!value) return undefined
@@ -397,6 +399,32 @@ function mutateP4(json: CfnextJson, kind: string, args: Args): CfnextJson {
       },
       { memory: !flagBool(args.flags, "no-memory") },
     )
+  }
+  return json
+}
+
+function mutateP5(json: CfnextJson, kind: string, args: Args): CfnextJson {
+  const binding = flagString(args.flags, "binding")
+  const remote = flagBool(args.flags, "remote")
+  if (kind === "analytics-engine") {
+    const dataset = flagString(args.flags, "dataset")
+    return addAnalyticsEngine(json, { binding: binding ?? "AE", ...(dataset ? { dataset } : {}) })
+  }
+  if (kind === "pipeline") {
+    const stream = flagString(args.flags, "stream")
+    return addPipeline(json, { binding: binding ?? "PIPELINE", ...(stream ? { stream } : {}), ...(remote ? { remote: true } : {}) })
+  }
+  if (kind === "browser") {
+    return addBrowser(json, { binding: binding ?? "BROWSER", ...(remote ? { remote: true } : {}) })
+  }
+  if (kind === "worker-loader") {
+    return addWorkerLoader(json, { binding: binding ?? "LOADER" })
+  }
+  if (kind === "service") {
+    const service = flagString(args.flags, "service")
+    if (!service) fail("Usage: cfnext add service --binding NAME --service <worker> [--entrypoint export]")
+    const entrypoint = flagString(args.flags, "entrypoint")
+    return addService(json, { binding: binding ?? "SERVICE", service, ...(entrypoint ? { entrypoint } : {}) })
   }
   return json
 }
@@ -689,6 +717,23 @@ export async function addCommand(args: Args): Promise<void> {
     console.log(unchanged ? `${kind} already present → ${dest}` : `added ${kind} → ${dest}`)
     if (catalog.kind === "mcp-portal") {
       console.log("MCP Portals are L4. See .cloudflare/generated/mcp-portals.plan.json")
+    }
+    try {
+      await generate(root)
+    } catch (error) {
+      failIfGenerate(error)
+    }
+    return
+  }
+
+  if (P5_KINDS.has(catalog.kind)) {
+    const before = JSON.stringify(json)
+    json = mutateP5(json, catalog.kind, args)
+    const unchanged = JSON.stringify(json) === before
+    await writeFile(dest, stringifyJsonc(json))
+    console.log(unchanged ? `${kind} already present → ${dest}` : `added ${kind} → ${dest}`)
+    if (catalog.kind === "browser") {
+      console.log("Browser Rendering requires a Workers paid plan. Use --remote in local dev.")
     }
     try {
       await generate(root)
