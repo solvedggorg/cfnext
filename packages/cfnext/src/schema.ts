@@ -223,6 +223,7 @@ export type CfnextJson = {
   name?: string
   target?: "workers" | "ssr" | "container"
   compatibilityDate?: string
+  workerFirst?: string[]
   compatibilityFlags?: string[]
   workersDev?: boolean
   previewUrls?: boolean

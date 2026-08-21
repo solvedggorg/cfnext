@@ -14,7 +14,7 @@ test("init scaffold bunfig installs cfnext from the solved registry", () => {
     name: "demo",
     target: "workers",
     bindings: [],
-    packageSpecifier: "^0.7.2",
+    packageSpecifier: "^0.7.3",
   })
   const bunfig = files["bunfig.toml"]
   expect(bunfig).toContain("[install]")

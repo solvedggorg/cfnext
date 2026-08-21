@@ -2,6 +2,7 @@ import { CatalogError, emitImplementedBindings, ensureP2ObservabilityDefaults } 
 import { COMPATIBILITY_DATE } from "../constants"
 import type { CfnextConfig } from "../config"
 import { assertMigrationsMatchLive, MigrationError, seedContainerMigration } from "../migrations"
+import { runWorkerFirstFromPrefixes } from "../protect"
 import type { BindingName, CfnextBindings, CfnextEnvOverlay, CfnextJson } from "../schema"
 import { buildWrangler, type WranglerConfig } from "../wrangler"
 import { GenerateError } from "./errors"
@@ -126,6 +127,17 @@ export function compileWrangler(config: CfnextConfig, json: CfnextJson): Wrangle
       throw new GenerateError(error.message)
     }
     throw error
+  }
+
+  if (json.workerFirst?.length) {
+    const extra = runWorkerFirstFromPrefixes(json.workerFirst)
+    const existing = wrangler.assets?.run_worker_first
+    wrangler.assets = {
+      ...wrangler.assets!,
+      run_worker_first: [
+        ...new Set([...(Array.isArray(existing) ? existing : []), ...extra]),
+      ],
+    }
   }
 
   ensureP2ObservabilityDefaults(wrangler)
