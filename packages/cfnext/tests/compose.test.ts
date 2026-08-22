@@ -1,50 +1,33 @@
 import { expect, test } from "bun:test"
 
-import { asExportedHandler, composeWorker } from "../src/worker/compose"
+import { composeWorker } from "../src/worker/compose"
 
-test("asExportedHandler accepts a fetch-only worker", async () => {
-  const worker = {
-    fetch: () => new Response("ok"),
+const req = () => new Request("https://app.example/api/ping")
+
+test("composeWorker passes through when no extra handlers exist", async () => {
+  const base = { fetch: () => new Response("base") }
+  const worker = composeWorker(base, {})
+  expect(worker.email).toBeUndefined()
+  expect(await worker.fetch(req(), {}, {})).toBeInstanceOf(Response)
+})
+
+test("composeWorker tries edgeFetch first and falls back to the user worker", async () => {
+  const base = {
+    fetch: (request: Request) => new Response(`base:${new URL(request.url).pathname}`),
   }
-  const handler = asExportedHandler(worker)
-  const res = await handler.fetch!(new Request("https://example.com"), {}, {})
-  expect(await res.text()).toBe("ok")
+  const edgeFetch = (request: Request) =>
+    new URL(request.url).pathname === "/api/ping" ? new Response("edge") : null
+  const worker = composeWorker(base as never, { edgeFetch })
+  const hit = await worker.fetch(req(), {}, {})
+  expect(await hit.text()).toBe("edge")
+  const miss = await worker.fetch(new Request("https://app.example/other"), {}, {})
+  expect(await miss.text()).toBe("base:/other")
 })
 
-test("asExportedHandler rejects a missing fetch", () => {
-  expect(() => asExportedHandler({})).toThrow(/fetch/)
-})
-
-test("composeWorker copies queue and scheduled from extra onto the user fetch", async () => {
-  const base = asExportedHandler({
-    fetch: () => new Response("app"),
-  })
-  const composed = composeWorker(base, {
-    queue: async () => {},
-    scheduled: async () => {},
-  })
-  expect(composed.queue).toBeDefined()
-  expect(composed.scheduled).toBeDefined()
-  const res = await composed.fetch!(new Request("https://example.com"), {}, {})
-  expect(await res.text()).toBe("app")
-})
-
-test("composeWorker rejects extra fetch so the user owns fetch", () => {
-  const base = asExportedHandler({
-    fetch: () => new Response("app"),
-  })
-  expect(() =>
-    composeWorker(base, {
-      fetch: () => new Response("hijack"),
-    }),
-  ).toThrow(/fetch/)
-})
-
-test("composeWorker copies email from extra", () => {
-  const base = asExportedHandler({
-    fetch: () => new Response("app"),
-  })
-  const email = async () => {}
-  const composed = composeWorker(base, { email })
-  expect(composed.email).toBe(email)
+test("composeWorker still rejects a user-owned fetch in extras and keeps named handlers", () => {
+  expect(() => composeWorker({}, { fetch: () => new Response() })).toThrow(/owns fetch/)
+  const base = { fetch: () => new Response("x") }
+  const scheduled = { cron: "0 * * * *" }
+  const worker = composeWorker(base as never, { scheduled })
+  expect(worker.scheduled).toBe(scheduled)
 })

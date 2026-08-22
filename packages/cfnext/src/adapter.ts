@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
+import { edgePackLog, packEdgeHandlers } from "./edge"
 import { loadConfig, loadProject, type LoadedProject } from "./config"
 import { IMAGE_LOADER_FILE } from "./generate/next"
 import { packBuild, type PackOutputs, type PackRouting } from "./pack"
@@ -77,9 +78,13 @@ const adapter = {
       nextVersion,
       config,
     }
-    await packBuild(packed)
+    const { edgeHandlers } = await packBuild(packed)
     if (config.target === "ssr") {
       await packSsrHandlers(packed)
+    }
+    if (config.target === "workers" && edgeHandlers.length > 0) {
+      await packEdgeHandlers({ projectDir, routes: edgeHandlers })
+      console.log(edgePackLog(projectDir, edgeHandlers.length))
     }
   },
 }

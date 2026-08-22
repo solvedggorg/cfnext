@@ -21,6 +21,8 @@ export type PackHandler = {
   filePath?: string
   id?: string
   assets?: Record<string, string>
+  entryKey?: string
+  handlerExport?: string
 }
 
 export type PackOutputs = {
